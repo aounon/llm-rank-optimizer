@@ -1,4 +1,5 @@
 # Implements the Greedy Coordinate Gradient (GCG) adversarial attack algorithm for LLMs.
+# Reference: Universal and Transferable Adversarial Attacks on Aligned Language Models, Zou et al. 2023, https://arxiv.org/abs/2307.15043
 import torch
 import numpy as np
 # import transformers
