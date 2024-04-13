@@ -34,7 +34,7 @@ Adding the option `--random_order` optimizes the STS to tolerate variations in t
 python rank_opt.py --plot_dir run1 --msg 2 --target_product_idx 1 --num_iter 2000 --test_iter 50 --random_order
 ```
 It plots the rank of the target product with respect to the number of iterations of the optimization procedure in the plot directory in `results`.
-It also generates the target product's information with the STS embeded in one of the JSON fields in a text file in the same directory.
+It also generates the target product's information with the STS embedded in one of the JSON fields in a text file in the same directory.
 
 The `data` directory contains JSONL files such as `products.jsonl` with information for ten fictitious coffee machines. The products are sorted by price in `products_price.jsonl`.
 
