@@ -1,6 +1,6 @@
 # Manipulating Large Language Models to Increase Product Visibility
 
-This repository contains accompanying code for the paper titled Manipulating Large Language Models to Increase Product Visibility.
+This repository contains accompanying code for the paper titled [Manipulating Large Language Models to Increase Product Visibility](https://arxiv.org/abs/2404.07981).
 
 ## Introduction
 Large language models (LLMs) are being used to search product

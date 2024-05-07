@@ -46,21 +46,66 @@ def rank_products(text, product_names):
 
     return ranks
 
-def prompt_generator(target_product_idx, product_list, user_msg, tokenizer, device, adv_tokens):
+def prompt_generator_vicuna(target_product_idx, product_list, user_msg, tokenizer, device, sts_tokens):
     '''
     Generate the prompt for the rank optimization procedure.
 
     Args:
-        adv_target_idx: The index of the product to be attacked.
+        target_product_idx: The index of the target product in the product list.
         product_list: A list of products as dictionaries.
         user_msg: The user's message.
         tokenizer: The tokenizer of the model.
         device: The device to run the model.
-        num_adv: The number of adversarial tokens to be added.
+        sts_tokens: The tokens for the strategic text sequence.
 
     Returns:
-        adv_prompt_ids: Token IDs of the adversarial prompt.
-        adv_idxs: The indices of the adversarial tokens.
+        sts_prompt_ids: Token IDs of the STS inserted prompt.
+        sts_idxs: The indices of the STS tokens.
+    '''
+    
+    system_prompt = "A chat between a user and an assistant. The assistant provides a numbered list of " \
+                    + "product recommendations ranked based on the user's request.\n\n" \
+                    + "USER:\n\nProducts:\n"
+
+    head = system_prompt
+    tail = ''
+
+    # Generate the adversarial prompt
+    for i, product in enumerate(product_list):
+        if i < target_product_idx:
+            head += json.dumps(product) + "\n"
+        elif i == target_product_idx:
+            head += json.dumps(product) + "\n"
+            tail += head[-3:]
+            head = head[:-3]
+        else:
+            tail += json.dumps(product) + "\n"
+
+    tail += "\n" + user_msg + "\n\nASSISTANT: "
+
+    head_tokens = tokenizer(head, return_tensors="pt")["input_ids"].to(device)
+    head_sts = torch.cat((head_tokens, sts_tokens), dim=1)
+    sts_idxs = torch.arange(head_sts.shape[1] - sts_tokens.shape[1], head_sts.shape[1], device=device)
+    tail_tokens = tokenizer(tail, return_tensors="pt", add_special_tokens=False)["input_ids"].to(device)
+    sts_prompt_ids = torch.cat((head_sts, tail_tokens), dim=1)
+
+    return sts_prompt_ids, sts_idxs
+
+def prompt_generator_llama(target_product_idx, product_list, user_msg, tokenizer, device, sts_tokens):
+    '''
+    Generate the prompt for the rank optimization procedure.
+
+    Args:
+        target_product_idx: The index of the target product in the product list.
+        product_list: A list of products as dictionaries.
+        user_msg: The user's message.
+        tokenizer: The tokenizer of the model.
+        device: The device to run the model.
+        sts_tokens: The tokens for the strategic text sequence.
+
+    Returns:
+        sts_prompt_ids: Token IDs of the STS inserted prompt.
+        sts_idxs: The indices of the STS tokens.
     '''
     
     system_prompt = "[INST] <<SYS>>\nA chat between a human and an artificial " \
@@ -92,17 +137,16 @@ def prompt_generator(target_product_idx, product_list, user_msg, tokenizer, devi
     tail += "\n" + user_msg + " [/INST]"
 
     head_tokens = tokenizer(head, return_tensors="pt")["input_ids"].to(device)
-    # adv_tokens = torch.full((1, num_adv), tokenizer.encode('*')[1]).to(device)  # Insert adversarial tokens
-    head_adv = torch.cat((head_tokens, adv_tokens), dim=1)
-    adv_idxs = torch.arange(head_adv.shape[1] - adv_tokens.shape[1], head_adv.shape[1], device=device)
+    head_sts = torch.cat((head_tokens, sts_tokens), dim=1)
+    sts_idxs = torch.arange(head_sts.shape[1] - sts_tokens.shape[1], head_sts.shape[1], device=device)
     tail_tokens = tokenizer(tail, return_tensors="pt", add_special_tokens=False)["input_ids"].to(device)
-    adv_prompt_ids = torch.cat((head_adv, tail_tokens), dim=1)
+    sts_prompt_ids = torch.cat((head_sts, tail_tokens), dim=1)
 
-    return adv_prompt_ids, adv_idxs
+    return sts_prompt_ids, sts_idxs
 
-def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, prompt_gen,
+def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_function, prompt_gen_list,
              forbidden_tokens, save_path, num_iter=1000, top_k=256, num_samples=512, batch_size=200,
-             test_iter=50, num_adv=20, verbose=True, random_order=True):
+             test_iter=50, num_sts_tokens=30, verbose=True, random_order=True):
     '''
     Implements the rank optimization procedure. The objective is to generate an optimized
     text sequence that when add to the target product in the product list will result in
@@ -126,45 +170,59 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
         num_samples: Number of adversarial sequences to be generated in each iteration.
         batch_size: The batch size for the optimization procedure.
         test_iter: The number of iterations after which to evaluate the attack.
-        num_adv: The number of adversarial tokens to be added.
+        num_sts_tokens: Number of tokens in the strategic text sequence.
         verbose: Whether to print the progress of the attack.
         random_order: Whether to shuffle the product list in each iteration.
     '''
 
-    # Get device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Put model in eval mode and turn off gradients of model parameters
-    model.to(device).eval()
-    for param in model.parameters():
-        param.requires_grad = False
-    
     # Get product names and target product
     product_names = [product['Name'] for product in product_list]
     target_product = product_names[target_product_idx]
     num_prod = len(product_names)
 
-    opt_tokens = torch.full((1, num_adv), tokenizer.encode('*')[1]).to(device)  # Insert optimizable tokens
+    sts_tokens = torch.full((1, num_sts_tokens), tokenizer.encode('*')[1]).to(device)  # Insert optimizable tokens
 
-    # Generate input prompt
-    inp_prompt_ids, opt_idxs = prompt_gen(target_product_idx, product_list, tokenizer, device, opt_tokens)
+    input_sequence_list = []
+    sts_idxs_list = []
+
+    num_models = len(model_list)
+
+    for i in range(num_models):
+        # Generate input prompt
+        inp_prompt_ids, sts_idxs = prompt_gen_list[i](target_product_idx, product_list, tokenizer, device, sts_tokens)
+        input_sequence_list.append(inp_prompt_ids)
+        sts_idxs_list.append(sts_idxs)
+
+    # rand_idx = random.randint(0, len(model_list) - 1)
+
+    # model = model_list[rand_idx]
+    # tokenizer = tokenizer_list[0]
+    # loss_function = loss_function_list[0]
+    # prompt_gen = prompt_gen_list[rand_idx]
 
     df = pd.DataFrame(columns=["Iteration", "Rank"])
 
     if verbose:
-        print("\nADV PROMPT:\n" + decode_adv_prompt(inp_prompt_ids[0], opt_idxs, tokenizer))
+        rand_idx = random.randint(0, num_models - 1)
+        model = model_list[rand_idx]
+        inp_prompt_ids = input_sequence_list[rand_idx]
+        sts_idxs = sts_idxs_list[rand_idx]
+
+        print("\nADV PROMPT:\n" + decode_adv_prompt(inp_prompt_ids[0], sts_idxs, tokenizer), flush=True)
         model_output = model.generate(inp_prompt_ids, model.generation_config, max_new_tokens=800)
         model_output_new = tokenizer.decode(model_output[0, len(inp_prompt_ids[0]):]).strip()
-        print("\nLLM RESPONSE:\n" + model_output_new)
+        print("\nLLM RESPONSE:\n" + model_output_new, flush=True)
 
         product_rank = rank_products(model_output_new, product_names)[target_product]
         df = pd.concat([df, pd.DataFrame({"Iteration": [0], "Rank": [product_rank]})], ignore_index=True)
-        print(colored(f"\nTarget Product Rank: {product_rank}", "blue"))
+        print(colored(f"\nTarget Product Rank: {product_rank}", "blue"), flush=True)
 
         # Create directory to save plot
         save_dir = os.path.dirname(save_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
+
+        # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
 
         print("")
         print("\nIteration, Curr loss, Avg loss, Avg time, Opt sequence")
@@ -182,7 +240,8 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
 
         # Perform one step of the attack
         start_time = time.time()
-        inp_prompt_ids, curr_loss = gcg_step(inp_prompt_ids, opt_idxs, model, loss_function, forbidden_tokens, top_k, num_samples, batch_size)
+        # inp_prompt_ids, curr_loss = gcg_step(inp_prompt_ids, sts_idxs, model, loss_function, forbidden_tokens, top_k, num_samples, batch_size)
+        input_sequence_list, curr_loss = gcg_step_multi(input_sequence_list, sts_idxs_list, model_list, loss_function, forbidden_tokens, top_k, num_samples, batch_size)
         end_time = time.time()
         iter_time = end_time - start_time
         avg_iter_time = ((iter * avg_iter_time) + iter_time) / (iter + 1)
@@ -197,46 +256,69 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
 
 
         if random_order:
-            opt_tokens = inp_prompt_ids[0, opt_idxs].unsqueeze(0)
+            # sts_tokens = inp_prompt_ids[0, sts_idxs].unsqueeze(0)
+            sts_tokens = input_sequence_list[0][0, sts_idxs_list[0]].unsqueeze(0)
 
             random.shuffle(product_list)
 
             # Find target product index in the shuffled list
             target_product_idx = [product['Name'] for product in product_list].index(target_product)
+
+            input_sequence_list = []
+            sts_idxs_list = []
+
+            for i in range(num_models):
+                # Generate input prompt
+                inp_prompt_ids, sts_idxs = prompt_gen_list[i](target_product_idx, product_list, tokenizer, device, sts_tokens)
+                input_sequence_list.append(inp_prompt_ids)
+                sts_idxs_list.append(sts_idxs)
             
-            inp_prompt_ids, opt_idxs = prompt_gen(target_product_idx, product_list, tokenizer, device, opt_tokens)
-            eval_prompt_ids = inp_prompt_ids
-            eval_opt_idxs = opt_idxs
+            # inp_prompt_ids, sts_idxs = prompt_gen(target_product_idx, product_list, tokenizer, device, sts_tokens)
+            # eval_prompt_ids = inp_prompt_ids
+            # eval_opt_idxs = sts_idxs
+
+            eval_sequence_list = input_sequence_list
+            eval_sts_idxs_list = sts_idxs_list
 
         else:
             # Pick the prompt with the lowest loss
             if iter == 0:
                 best_loss = curr_loss
-                eval_prompt_ids = inp_prompt_ids
-                eval_opt_idxs = opt_idxs
+                # eval_prompt_ids = inp_prompt_ids
+                # eval_opt_idxs = sts_idxs
+                eval_sequence_list = input_sequence_list
+                eval_sts_idxs_list = sts_idxs_list
 
             else:
                 if curr_loss < best_loss:
                     best_loss = curr_loss
-                    eval_prompt_ids = inp_prompt_ids
-                    eval_opt_idxs = opt_idxs
+                    # eval_prompt_ids = inp_prompt_ids
+                    # eval_opt_idxs = sts_idxs
+                    eval_sequence_list = input_sequence_list
+                    eval_sts_idxs_list = sts_idxs_list
 
         if verbose:
             # Print current loss and best loss
+            rand_idx = random.randint(0, num_models - 1)
+            model = model_list[rand_idx]
+            eval_prompt_ids = eval_sequence_list[rand_idx]
+            eval_opt_idxs = eval_sts_idxs_list[rand_idx]
+
             print(str(iter + 1) + "/{}, {:.4f}, {:.4f}, {:.1f}s, {}".format(num_iter, curr_loss, avg_loss, avg_iter_time, colored(tokenizer.decode(eval_prompt_ids[0, eval_opt_idxs]), 'red'))
                                                            + " " * 10, flush=True, end="\r")
 
             # Evaluate attack every test_iter iterations
             if (iter + 1) % test_iter == 0 or iter == num_iter - 1:
+                
                 print("\n\nEvaluating attack...")
-                print("\nADV PROMPT:\n" + decode_adv_prompt(eval_prompt_ids[0], eval_opt_idxs, tokenizer))
+                print("\nADV PROMPT:\n" + decode_adv_prompt(eval_prompt_ids[0], eval_opt_idxs, tokenizer), flush=True)
                 model_output = model.generate(eval_prompt_ids, model.generation_config, max_new_tokens=800)
                 model_output_new = tokenizer.decode(model_output[0, len(eval_prompt_ids[0]):]).strip()
-                print("\nLLM RESPONSE:\n" + model_output_new)
+                print("\nLLM RESPONSE:\n" + model_output_new, flush=True)
 
                 product_rank = rank_products(model_output_new, product_names)[target_product]
                 df = pd.concat([df, pd.DataFrame({"Iteration": [iter + 1], "Rank": [product_rank]})], ignore_index=True)
-                print(colored(f"\nTarget Product Rank: {product_rank}", "blue"))
+                print(colored(f"\nTarget Product Rank: {product_rank}", "blue"), flush=True)
                 df.to_csv(save_path + "_rank.csv", index=False)
 
                 # Update top count
@@ -256,7 +338,8 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
                                 file.write(line + "\n")
                             break
 
-                print(f'\nTop count: {top_count}, Best top count: {best_top_count}')
+                # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
+                print(f'\nTop count: {top_count}, Best top count: {best_top_count}', flush=True)
 
                 # Plot iteration vs. top as dots
                 plt.figure(figsize=(7, 4))
@@ -290,14 +373,14 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
 
                 if iter < num_iter - 1:                    
                     print("")
-                    print("Iteration, Curr loss, Avg loss, Opt sequence")
+                    print("Iteration, Curr loss, Avg loss, Opt sequence", flush=True)
 
     print("")
 
 
 if __name__ == "__main__":
 
-    argparser = argparse.ArgumentParser(description="Preference Attack")
+    argparser = argparse.ArgumentParser(description="Product Rank Optimization")
     argparser.add_argument("--plot_dir", type=str, default="plots", help="The tag for the plot.")
     argparser.add_argument("--msg", type=int, default=1, help="The user's message.")
     argparser.add_argument("--num_iter", type=int, default=500, help="The number of iterations.")
@@ -312,21 +395,19 @@ if __name__ == "__main__":
     test_iter = args.test_iter
     random_order = args.random_order
 
-    model_path = "meta-llama/Llama-2-7b-chat-hf"
-    batch_size = 50
+    # Use models with similar tokenizers
+    model_path_llama_7b = "meta-llama/Llama-2-7b-chat-hf"
+    model_path_llama_13b = "meta-llama/Llama-2-13b-chat-hf"
+    model_path_vicuna_7b = "lmsys/vicuna-7b-v1.5"
+    # model_path_vicuna_13b = "lmsys/vicuna-13b-v1.5"
+    batch_size = 150
 
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    if device.type == "cuda":
-        device_name = torch.cuda.get_device_name()
-        print(f"Device name: {device_name}")
-        
-        if '80GB' in device_name:
-            batch_size = 100
 
     print("\n* * * * * Experiment Parameters * * * * *")
-    print("Model path:", model_path)
+    print(f"Device name: {torch.cuda.get_device_name()}")
+    print("Model path:", model_path_llama_7b)
     print("User's message:", msg)
     print("Number of iterations:", num_iter)
     print("Number of test iterations:", test_iter)
@@ -336,16 +417,68 @@ if __name__ == "__main__":
     print("* * * * * * * * * * * * * * * * * * * * *\n")
 
     # Load model and tokenizer
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path,
+    model_llama_7b = transformers.AutoModelForCausalLM.from_pretrained(
+        model_path_llama_7b,
+        torch_dtype=torch.float16,
+        trust_remote_code=True,
+        low_cpu_mem_usage=True,
+        use_cache=False,
+        )
+        
+    # model_llama_13b = transformers.AutoModelForCausalLM.from_pretrained(
+    #     model_path_llama_13b,
+    #     torch_dtype=torch.float16,
+    #     trust_remote_code=True,
+    #     low_cpu_mem_usage=True,
+    #     use_cache=False,
+    #     )
+        
+    model_vicuna_7b = transformers.AutoModelForCausalLM.from_pretrained(
+        model_path_vicuna_7b,
         torch_dtype=torch.float16,
         trust_remote_code=True,
         low_cpu_mem_usage=True,
         use_cache=False,
         )
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+    # model_vicuna_13b = transformers.AutoModelForCausalLM.from_pretrained(
+    #     model_path_vicuna_13b,
+    #     torch_dtype=torch.float16,
+    #     trust_remote_code=True,
+    #     low_cpu_mem_usage=True,
+    #     use_cache=False,
+    #     )
+    
+    tokenizer_llama = transformers.AutoTokenizer.from_pretrained(model_path_llama_7b)
+    # tokenizer_vicuna = transformers.AutoTokenizer.from_pretrained(model_path_vicuna)
 
+    # Get device
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Put model in eval mode and turn off gradients of model parameters
+    model_llama_7b.to(device).eval()
+    for param in model_llama_7b.parameters():
+        param.requires_grad = False
+
+    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
+
+    # model_llama_13b.to(device).eval()
+    # for param in model_llama_13b.parameters():
+    #     param.requires_grad = False
+    
+    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
+
+    model_vicuna_7b.to(device).eval()
+    for param in model_vicuna_7b.parameters():
+        param.requires_grad = False
+
+    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
+
+    # model_vicuna_13b.to(device).eval()
+    # for param in model_vicuna_13b.parameters():
+    #     param.requires_grad = False
+    
+    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
     # model = model.to(device)
 
     # Load products from JSONL file
@@ -366,9 +499,15 @@ if __name__ == "__main__":
     # target_str = "Of course! I'd be happy to help you find the perfect coffee machine. " \
     #            + "Based on your request, I have compiled a list of recommendations for you to consider:\n1. " + target_product
     # print("TARGET STR:", target_str)
-    target_str = "1. " + target_product
-    print("\nTARGET STR:", target_str)
-    plot_path = plot_dir + "/nostr"
+
+    # target_str = "1. " + target_product
+    # print("\nTARGET STR:", target_str)
+    # plot_path = plot_dir + "/nostr"
+
+    target_str = "Sure! Here are some coffee machine recommendations based on your request:\n\n1. " + target_product
+    print("TARGET STR:", target_str)
+    plot_path = plot_dir + "/str"
+
     # target_str = target_product
     # print("TARGET STR:", target_str)
     # plot_path = plot_path + "_nonum"
@@ -386,11 +525,14 @@ if __name__ == "__main__":
     # plot_path = plot_path + "_pref"
 
     # Get forbidden tokens
-    forbidden_tokens = get_nonascii_toks(tokenizer)
+    forbidden_tokens = get_nonascii_toks(tokenizer_llama)
 
     # Lambda function for the target loss and prompt generator
-    loss_fn = lambda embeddings, model: target_loss(embeddings, model, tokenizer, target_str)
-    prompt_gen = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
+    loss_fn = lambda embeddings, model: target_loss(embeddings, model, tokenizer_llama, target_str)
+    prompt_gen_llama = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_llama(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
-    rank_opt(target_product_idx, product_list, model, tokenizer, loss_fn, prompt_gen,
-             forbidden_tokens, plot_path, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order)
+    # loss_fn_vicuna = lambda embeddings, model: target_loss(embeddings, model, tokenizer_vicuna, target_str)
+    prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
+
+    rank_opt(target_product_idx, product_list, [model_llama_7b, model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_llama, prompt_gen_vicuna],
+            forbidden_tokens, plot_path, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order)
