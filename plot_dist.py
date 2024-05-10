@@ -3,6 +3,7 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 import json
 import pandas as pd
+import os
 # import numpy as np
 import argparse
 
@@ -11,6 +12,7 @@ import argparse
 sns.set_style("darkgrid")
 
 def create_rank_list(rank_dist, num_prod, total_values=20):
+    # Create a list of ranks of length total_values preserving the distribution in rank_dist
     rank_list = []
     cumulative_error = 0.0
 
@@ -70,17 +72,43 @@ def plot_advantage(advantage, save_path, plot_title="Rank Advantage"):
     plt.savefig(save_path)
     plt.close()
 
+def rank_barplot(rank_list, rank_list_opt, num_prod, save_path, plot_title="Rank Distribution"):
+    rank_df = pd.DataFrame({
+        "Rank": range(1, num_prod + 2),
+        "Before": [rank_list.count(i) for i in range(1, num_prod + 2)],
+        "After": [rank_list_opt.count(i) for i in range(1, num_prod + 2)]
+    })
+    # Convert frequency to fraction
+    rank_df["Before"] = (rank_df["Before"] / rank_df["Before"].sum()) * 100
+    rank_df["After"] = (rank_df["After"] / rank_df["After"].sum()) * 100
+    rank_df = rank_df.melt("Rank", var_name="Rank Type", value_name="Frequency")
+    plt.figure(figsize=(7, 5))
+    sns.barplot(x="Rank", y="Frequency", hue="Rank Type", data=rank_df)
+    plt.title(plot_title, fontsize=16)
+    plt.xlabel("Rank", fontsize=16)
+    plt.ylabel("Percentage", fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.ylim(0, 100)
+    plt.legend(fontsize=14)
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Plot the results of the evaluation")
-    parser.add_argument("--prod_tag", type=str, help="Tag of the product to rank", default='3_of_ef')
+    parser.add_argument("results_file", type=str, help="The file containing the evaluation results")
     args = parser.parse_args()
 
-    prod_tag = args.prod_tag
+    results_file = args.results_file
+    # Get the directory of the results file
+    res_file_dir = os.path.dirname(results_file)
+    # print(f"Results file: {results_file}")
+    # print(f"Results directory: {res_file_dir}")
 
     # Load json file
-    file_path = f'results/eval_prod_{prod_tag}.json'
-    with open(file_path, "r") as file:
+    with open(results_file, "r") as file:
         data = json.load(file)
 
     target_product = data["target_product"]
@@ -94,14 +122,17 @@ if __name__ == "__main__":
     num_prod = 10
 
     # Create rank lists
-    rank_list = create_rank_list(rank_dist, num_prod)
-    rank_list_opt = create_rank_list(rank_dist_opt, num_prod)
-    rank_list_cleaned = create_rank_list(rank_dist_cleaned, num_prod)
-    rank_list_opt_cleaned = create_rank_list(rank_dist_opt_cleaned, num_prod)
+    rank_list_approx = create_rank_list(rank_dist, num_prod)
+    rank_list_opt_approx = create_rank_list(rank_dist_opt, num_prod)
+    rank_list_cleaned_approx = create_rank_list(rank_dist_cleaned, num_prod)
+    rank_list_opt_cleaned_approx = create_rank_list(rank_dist_opt_cleaned, num_prod)
 
-    plot_ranks(rank_list, rank_list_opt, num_prod, file_path.replace(".json", "_ranks.png"), plot_title=f"Rank Distribution for\n{target_product}")
-    plot_ranks(rank_list_cleaned, rank_list_opt_cleaned, num_prod, file_path.replace(".json", "_ranks_cleaned.png"), plot_title=f"Rank Distribution for\n{target_product} (Rec Only)")
+    plot_ranks(rank_list_approx, rank_list_opt_approx, num_prod, res_file_dir + "/ranks.png", plot_title=f"Rank Distribution for\n{target_product}")
+    plot_ranks(rank_list_cleaned_approx, rank_list_opt_cleaned_approx, num_prod, res_file_dir + "/ranks_cleaned.png", plot_title=f"Rank Distribution for\n{target_product} (Rec Only)")
+
+    rank_barplot(data["rank_list"], data["rank_list_opt"], num_prod, res_file_dir + "/rank_barplot.png", plot_title=f"Rank Distribution for {target_product}")
+    rank_barplot(data["rank_list_cleaned"], data["rank_list_opt_cleaned"], num_prod, res_file_dir + "/rank_barplot_cleaned.png", plot_title=f"Rank Distribution for {target_product} (Rec Only)")
 
     # Plot advantage
-    plot_advantage(advantage, file_path.replace(".json", "_advantage.png"), plot_title=f"Rank Advantage for {target_product}")
-    plot_advantage(advantage_cleaned, file_path.replace(".json", "_advantage_cleaned.png"), plot_title=f"Rank Advantage for {target_product} (Rec Only)")
+    plot_advantage(advantage, res_file_dir + "/advantage.png", plot_title=f"Rank Advantage for {target_product}")
+    plot_advantage(advantage_cleaned, res_file_dir + "/advantage_cleaned.png", plot_title=f"Rank Advantage for {target_product} (Rec Only)")

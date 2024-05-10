@@ -193,13 +193,6 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
         input_sequence_list.append(inp_prompt_ids)
         sts_idxs_list.append(sts_idxs)
 
-    # rand_idx = random.randint(0, len(model_list) - 1)
-
-    # model = model_list[rand_idx]
-    # tokenizer = tokenizer_list[0]
-    # loss_function = loss_function_list[0]
-    # prompt_gen = prompt_gen_list[rand_idx]
-
     df = pd.DataFrame(columns=["Iteration", "Rank"])
 
     if verbose:
@@ -217,10 +210,9 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
         df = pd.concat([df, pd.DataFrame({"Iteration": [0], "Rank": [product_rank]})], ignore_index=True)
         print(colored(f"\nTarget Product Rank: {product_rank}", "blue"), flush=True)
 
-        # Create directory to save plot
-        save_dir = os.path.dirname(save_path)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        # Create directory to save plots and result
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
         # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
 
@@ -273,10 +265,6 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
                 input_sequence_list.append(inp_prompt_ids)
                 sts_idxs_list.append(sts_idxs)
             
-            # inp_prompt_ids, sts_idxs = prompt_gen(target_product_idx, product_list, tokenizer, device, sts_tokens)
-            # eval_prompt_ids = inp_prompt_ids
-            # eval_opt_idxs = sts_idxs
-
             eval_sequence_list = input_sequence_list
             eval_sts_idxs_list = sts_idxs_list
 
@@ -284,16 +272,12 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
             # Pick the prompt with the lowest loss
             if iter == 0:
                 best_loss = curr_loss
-                # eval_prompt_ids = inp_prompt_ids
-                # eval_opt_idxs = sts_idxs
                 eval_sequence_list = input_sequence_list
                 eval_sts_idxs_list = sts_idxs_list
 
             else:
                 if curr_loss < best_loss:
                     best_loss = curr_loss
-                    # eval_prompt_ids = inp_prompt_ids
-                    # eval_opt_idxs = sts_idxs
                     eval_sequence_list = input_sequence_list
                     eval_sts_idxs_list = sts_idxs_list
 
@@ -319,7 +303,7 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
                 product_rank = rank_products(model_output_new, product_names)[target_product]
                 df = pd.concat([df, pd.DataFrame({"Iteration": [iter + 1], "Rank": [product_rank]})], ignore_index=True)
                 print(colored(f"\nTarget Product Rank: {product_rank}", "blue"), flush=True)
-                df.to_csv(save_path + "_rank.csv", index=False)
+                df.to_csv(save_path + "/rank.csv", index=False)
 
                 # Update top count
                 if product_rank <= 3:
@@ -334,7 +318,7 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
                     eval_prompt_lines = eval_prompt_str.split("\n")
                     for _, line in enumerate(eval_prompt_lines):
                         if target_product in line:
-                            with open(save_path + "_opt.txt", "w") as file:
+                            with open(save_path + "/sts.txt", "w") as file:
                                 file.write(line + "\n")
                             break
 
@@ -355,7 +339,7 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
                 grey_patch = mpatches.Patch(color='grey', alpha=0.3, label='Not Recommended')
                 plt.legend(handles=[grey_patch])
                 plt.tight_layout() # Adjust the plot to the figure
-                plt.savefig(save_path + "_rank.png")
+                plt.savefig(save_path + "/rank.png")
                 plt.close()
 
                 # Plot iteration vs. current loss and average loss
@@ -368,7 +352,7 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
                 plt.yticks(fontsize=14)
                 plt.title("Current and Average Loss", fontsize=18)
                 plt.tight_layout() # Adjust the plot to the figure
-                plt.savefig(save_path + "_loss.png")
+                plt.savefig(save_path + "/loss.png")
                 plt.close()
 
                 if iter < num_iter - 1:                    
@@ -381,25 +365,26 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
 if __name__ == "__main__":
 
     argparser = argparse.ArgumentParser(description="Product Rank Optimization")
-    argparser.add_argument("--plot_dir", type=str, default="plots", help="The tag for the plot.")
-    argparser.add_argument("--msg", type=int, default=1, help="The user's message.")
+    argparser.add_argument("--results_dir", type=str, default="results", help="The directory to save the results.")
     argparser.add_argument("--num_iter", type=int, default=500, help="The number of iterations.")
     argparser.add_argument("--test_iter", type=int, default=20, help="The number of test iterations.")
     argparser.add_argument("--random_order", action="store_true", help="Whether to shuffle the product list in each iteration.")
     argparser.add_argument("--target_product_idx", type=int, default=0, help="The index of the target product in the product list.")
+    argparser.add_argument("--mode", type=str, default="self", choices=["self", "transfer"], help="Mode of optimization.")
     args = argparser.parse_args()
 
-    plot_dir = "results/" + args.plot_dir
-    msg = args.msg
+    results_dir = args.results_dir
     num_iter = args.num_iter
     test_iter = args.test_iter
     random_order = args.random_order
+    mode = args.mode
 
     # Use models with similar tokenizers
     model_path_llama_7b = "meta-llama/Llama-2-7b-chat-hf"
-    model_path_llama_13b = "meta-llama/Llama-2-13b-chat-hf"
-    model_path_vicuna_7b = "lmsys/vicuna-7b-v1.5"
-    # model_path_vicuna_13b = "lmsys/vicuna-13b-v1.5"
+
+    if mode == "transfer":
+        model_path_vicuna_7b = "lmsys/vicuna-7b-v1.5"
+    
     batch_size = 150
 
     # Set device
@@ -407,13 +392,17 @@ if __name__ == "__main__":
 
     print("\n* * * * * Experiment Parameters * * * * *")
     print(f"Device name: {torch.cuda.get_device_name()}")
-    print("Model path:", model_path_llama_7b)
-    print("User's message:", msg)
+    print("Mode:", mode)
+    if mode == "self":
+        print("Model path:", model_path_llama_7b)
+    else:
+        print("Model 1 path:", model_path_llama_7b)
+        print("Model 2 path:", model_path_vicuna_7b)
     print("Number of iterations:", num_iter)
     print("Number of test iterations:", test_iter)
     print("Batch size:", batch_size)
     print("Shuffle product list:", random_order)
-    print("Plots directory:", plot_dir)
+    print("Results directory:", results_dir)
     print("* * * * * * * * * * * * * * * * * * * * *\n")
 
     # Load model and tokenizer
@@ -424,66 +413,31 @@ if __name__ == "__main__":
         low_cpu_mem_usage=True,
         use_cache=False,
         )
-        
-    # model_llama_13b = transformers.AutoModelForCausalLM.from_pretrained(
-    #     model_path_llama_13b,
-    #     torch_dtype=torch.float16,
-    #     trust_remote_code=True,
-    #     low_cpu_mem_usage=True,
-    #     use_cache=False,
-    #     )
-        
-    model_vicuna_7b = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path_vicuna_7b,
-        torch_dtype=torch.float16,
-        trust_remote_code=True,
-        low_cpu_mem_usage=True,
-        use_cache=False,
-        )
-
-    # model_vicuna_13b = transformers.AutoModelForCausalLM.from_pretrained(
-    #     model_path_vicuna_13b,
-    #     torch_dtype=torch.float16,
-    #     trust_remote_code=True,
-    #     low_cpu_mem_usage=True,
-    #     use_cache=False,
-    #     )
     
-    tokenizer_llama = transformers.AutoTokenizer.from_pretrained(model_path_llama_7b)
-    # tokenizer_vicuna = transformers.AutoTokenizer.from_pretrained(model_path_vicuna)
-
-    # Get device
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     # Put model in eval mode and turn off gradients of model parameters
     model_llama_7b.to(device).eval()
     for param in model_llama_7b.parameters():
         param.requires_grad = False
+        
+    if mode == "transfer":
+        model_vicuna_7b = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path_vicuna_7b,
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            use_cache=False,
+            )
+        
+        # Put model in eval mode and turn off gradients of model parameters
+        model_vicuna_7b.to(device).eval()
+        for param in model_vicuna_7b.parameters():
+            param.requires_grad = False
 
-    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
-
-    # model_llama_13b.to(device).eval()
-    # for param in model_llama_13b.parameters():
-    #     param.requires_grad = False
-    
-    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
-
-    model_vicuna_7b.to(device).eval()
-    for param in model_vicuna_7b.parameters():
-        param.requires_grad = False
-
-    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
-
-    # model_vicuna_13b.to(device).eval()
-    # for param in model_vicuna_13b.parameters():
-    #     param.requires_grad = False
-    
-    # print(f"GPU memory used: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} / {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
-    # model = model.to(device)
+    tokenizer_llama = transformers.AutoTokenizer.from_pretrained(model_path_llama_7b)
 
     # Load products from JSONL file
     product_list = []
-    with open("data/products_price.jsonl", "r") as file:
+    with open("data/coffee_machines.jsonl", "r") as file:
         for line in file:
             product_list.append(json.loads(line))
 
@@ -495,34 +449,17 @@ if __name__ == "__main__":
     product_names = [product['Name'] for product in product_list]
 
     target_product = product_list[target_product_idx]['Name']
-    # print("TARGET PRODUCT:", target_product)
-    # target_str = "Of course! I'd be happy to help you find the perfect coffee machine. " \
-    #            + "Based on your request, I have compiled a list of recommendations for you to consider:\n1. " + target_product
+
+    target_str = "1. " + target_product
+    print("\nTARGET STR:", target_str)
+
+    # target_str = "Sure! Here are some coffee machine recommendations based on your request:\n\n1. " + target_product
     # print("TARGET STR:", target_str)
-
-    # target_str = "1. " + target_product
-    # print("\nTARGET STR:", target_str)
-    # plot_path = plot_dir + "/nostr"
-
-    target_str = "Sure! Here are some coffee machine recommendations based on your request:\n\n1. " + target_product
-    print("TARGET STR:", target_str)
-    plot_path = plot_dir + "/str"
 
     # target_str = target_product
     # print("TARGET STR:", target_str)
-    # plot_path = plot_path + "_nonum"
 
-    if random_order:
-        plot_path = plot_path + "_rand"
-
-    if msg == 1:
-        user_msg = "I am looking for a coffee machine. Can I get some recommendations?"
-    else:
-        user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations?"
-
-    plot_path = plot_path + "_msg" + str(msg)
-
-    # plot_path = plot_path + "_pref"
+    user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations?"
 
     # Get forbidden tokens
     forbidden_tokens = get_nonascii_toks(tokenizer_llama)
@@ -531,8 +468,12 @@ if __name__ == "__main__":
     loss_fn = lambda embeddings, model: target_loss(embeddings, model, tokenizer_llama, target_str)
     prompt_gen_llama = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_llama(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
-    # loss_fn_vicuna = lambda embeddings, model: target_loss(embeddings, model, tokenizer_vicuna, target_str)
-    prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
+    if mode == "transfer":
+        prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
-    rank_opt(target_product_idx, product_list, [model_llama_7b, model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_llama, prompt_gen_vicuna],
-            forbidden_tokens, plot_path, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order)
+    if mode == "self":
+        rank_opt(target_product_idx, product_list, [model_llama_7b], tokenizer_llama, loss_fn, [prompt_gen_llama],
+                forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order)
+    else:
+        rank_opt(target_product_idx, product_list, [model_llama_7b, model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_llama, prompt_gen_vicuna],
+                forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order)

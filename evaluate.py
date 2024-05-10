@@ -109,43 +109,25 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Evaluate the performance of the model")
     parser.add_argument("--model_path", type=str, help="Path to the model", default="meta-llama/Meta-Llama-3-8B-Instruct")
+    parser.add_argument("--sts_dir", type=str, help="Director containing product descriptions with STS inserted", default="results")
     parser.add_argument("--prod_idx", type=int, help="Index of the product to rank", default=3)
     parser.add_argument("--num_iter", type=int, help="Number of iterations to run", default=50)
-    parser.add_argument("--opt_prod_ord", type=str, choices=["random", "fixed"], help="Order of products during optimization", default="random")
-    parser.add_argument("--eval_prod_ord", type=str, choices=["random", "fixed"], help="Order of products during evaluation", default="random")
-    parser.add_argument("--tag", type=str, help="Tag for the experiment", default="")
+    parser.add_argument("--prod_ord", type=str, choices=["random", "fixed"], help="Order of products during evaluation", default="random")
     args = parser.parse_args()
 
     model_path = args.model_path
+    sts_dir = args.sts_dir
     prod_idx = args.prod_idx
     num_iter = args.num_iter
-    opt_prod_ord = args.opt_prod_ord
-    eval_prod_ord = args.eval_prod_ord
-    tag = args.tag
-
-    save_path = f'results/eval_prod_{prod_idx}'
-    if opt_prod_ord == "random":
-        save_path += "_or"
-    else:
-        save_path += "_of"
-    if eval_prod_ord == "random":
-        save_path += "_er"
-    else:
-        save_path += "_ef"
-    save_path += f"{tag}.json"
+    prod_ord = args.prod_ord
 
     print("\n* * * * * Experiment Parameters * * * * *")
     print(f"Model path: {model_path}")
     print(f"Product index: {prod_idx}")
     print(f"Number of iterations: {num_iter}")
-    print(f"Optimization product order: {opt_prod_ord}")
-    print(f"Evaluation product order: {eval_prod_ord}")
-    print(f"Save path: {save_path}")
+    print(f"Product order: {prod_ord}")
+    print(f"STS Directory: {sts_dir}")
     print("* * * * * * * * * * * * * * * * * * * * *\n")
-
-    # model_path = "meta-llama/Llama-2-7b-chat-hf"
-    # model_path = "meta-llama/Meta-Llama-3-8B-Instruct"
-    # model_path = "gpt-3.5-turbo"
 
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -205,7 +187,7 @@ if __name__ == "__main__":
         raise ValueError("Invalid model path")
 
     # Read file as lines
-    with open("data/products_price.jsonl", "r") as file:
+    with open("data/coffee_machines.jsonl", "r") as file:
         product_lines = file.readlines()
 
     product_names = [json.loads(line)['Name'] for line in product_lines]
@@ -214,25 +196,30 @@ if __name__ == "__main__":
     print(f"Target product: {target_product}")
     # print(f"Product names: {product_names}")
 
-    # Load optimized product list
-    if opt_prod_ord == "random":
-        with open(f'data/product{prod_idx}_r_opt.jsonl', "r") as file:
-            product_opt = file.readlines()
-    elif opt_prod_ord == "fixed":
-        with open(f'data/product{prod_idx}_f_opt.jsonl', "r") as file:
-            product_opt = file.readlines()
-    else:
-        raise ValueError("Invalid product order")
+    product_opt = product_lines.copy()
+
+    # Read product description with STS inserted from file
+    with open(sts_dir + "/sts.txt", "r") as file:
+        sts_line = file.read()
+
+    product_opt[prod_idx-1] = sts_line
+
+    # print("Product descriptions without STS:")
+    # for line in product_lines:
+    #     print(line)
+    # print("\nProduct descriptions with STS:")
+    # for line in product_opt:
+    #     print(line)
 
     rank_list = []
     rank_list_opt = []
     num_lines = len(product_lines)
 
     for i in range(num_iter):
-        if eval_prod_ord == "random":
+        if prod_ord == "random":
             # Shuffle the lines
             idx_perm = np.random.permutation(num_lines)
-        elif eval_prod_ord == "fixed":
+        elif prod_ord == "fixed":
             idx_perm = np.arange(num_lines)
         else:
             raise ValueError("Invalid product order")
@@ -275,7 +262,7 @@ if __name__ == "__main__":
         advantage_cleaned = rank_advantage(rank_list_cleaned, rank_list_opt_cleaned)
 
         # Save results
-        with open(save_path, "w") as file:
+        with open(sts_dir + "/eval.json", "w") as file:
             json.dump({
                 "target_product": target_product,
                 "rank_list": rank_list,

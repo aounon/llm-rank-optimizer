@@ -1,0 +1,43 @@
+{
+  "target_product": "FrenchPress Classic",
+  "rank_list": [
+    2,
+    2
+  ],
+  "rank_list_opt": [
+    2,
+    1
+  ],
+  "rank_list_cleaned": [
+    2,
+    2
+  ],
+  "rank_list_opt_cleaned": [
+    2,
+    1
+  ],
+  "rank_dist": {
+    "2": 100.0
+  },
+  "rank_dist_opt": {
+    "1": 50.0,
+    "2": 50.0
+  },
+  "rank_dist_cleaned": {
+    "2": 100.0
+  },
+  "rank_dist_opt_cleaned": {
+    "1": 50.0,
+    "2": 50.0
+  },
+  "advantage": {
+    "1": 50.0,
+    "0": 50.0,
+    "-1": 0.0
+  },
+  "advantage_cleaned": {
+    "1": 50.0,
+    "0": 50.0,
+    "-1": 0.0
+  }
+}
