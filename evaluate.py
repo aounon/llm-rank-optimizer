@@ -14,8 +14,8 @@ def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product
 
     prompt += "\n" + user_msg
 
-    # print(f'SYSTEM PROMPT: {system_prompt}')
-    # print(f'INPUT PROMPT: {prompt}')
+    # print(f'SYSTEM PROMPT: {system_prompt}', flush=True)
+    # print(f'INPUT PROMPT: {prompt}', flush=True)
 
     completion = client.chat.completions.create(
         model=model_path,
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     print(f"Number of iterations: {num_iter}")
     print(f"Product order: {prod_ord}")
     print(f"STS Directory: {sts_dir}")
-    print("* * * * * * * * * * * * * * * * * * * * *\n")
+    print("* * * * * * * * * * * * * * * * * * * * *\n", flush=True)
 
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     product_names = [json.loads(line)['Name'] for line in product_lines]
     num_products = len(product_names)
     target_product = product_names[prod_idx-1]
-    print(f"Target product: {target_product}")
+    print(f"Target product: {target_product}", flush=True)
     # print(f"Product names: {product_names}")
 
     product_opt = product_lines.copy()
