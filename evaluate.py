@@ -26,7 +26,7 @@ def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product
     )
 
     model_response = completion.choices[0].message.content
-    # print(f'MODEL OUTPUT: {model_response}')
+    # print(f'\nMODEL OUTPUT: {model_response}')
     rank = rank_products(model_response, product_names)[target_product]
     # print(f"Rank: {rank}")
     # input("Press Enter to continue...")
@@ -108,7 +108,7 @@ def clean_rank_lists(rank_list, rank_list_opt, num_products):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Evaluate the performance of the model")
-    parser.add_argument("--model_path", type=str, help="Path to the model", default="meta-llama/Meta-Llama-3-8B-Instruct")
+    parser.add_argument("--model_path", type=str, help="Path to the model", default="meta-llama/Llama-2-7b-chat-hf")
     parser.add_argument("--sts_dir", type=str, help="Director containing product descriptions with STS inserted", default="results")
     parser.add_argument("--prod_idx", type=int, help="Index of the product to rank", default=3)
     parser.add_argument("--num_iter", type=int, help="Number of iterations to run", default=50)

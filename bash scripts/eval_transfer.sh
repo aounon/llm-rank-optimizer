@@ -2,9 +2,9 @@
 
 num_iter=200
 
-for run in 1 2 3
+for run in 3
 do
-    for product in 6
+    for product in 4
     do
         python evaluate.py \
             --model_path "gpt-3.5-turbo" \
