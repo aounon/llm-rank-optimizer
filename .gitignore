@@ -3,3 +3,4 @@ test.py
 *_old*
 logs
 key.txt
+__pycache__
