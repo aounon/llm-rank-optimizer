@@ -4,18 +4,20 @@ import json
 import numpy as np
 import argparse
 from openai import OpenAI
+import sys
 
 from rank_opt import rank_products
 
-def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product_names, client, model_path):
+def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product_names, client, model_path, verbose=False):
     prompt = "Products:\n"
     for line in product_lines:
         prompt += line
 
     prompt += "\n" + user_msg
 
-    # print(f'SYSTEM PROMPT: {system_prompt}', flush=True)
-    # print(f'INPUT PROMPT: {prompt}', flush=True)
+    if verbose:
+        print(f'SYSTEM PROMPT: {system_prompt}', flush=True)
+        print(f'INPUT PROMPT: {prompt}', flush=True)
 
     completion = client.chat.completions.create(
         model=model_path,
@@ -26,10 +28,16 @@ def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product
     )
 
     model_response = completion.choices[0].message.content
-    # print(f'\nMODEL OUTPUT: {model_response}')
+
+    if verbose:
+        print(f'\nMODEL OUTPUT: {model_response}')
+
     rank = rank_products(model_response, product_names)[target_product]
-    # print(f"Rank: {rank}")
-    # input("Press Enter to continue...")
+
+    if verbose:
+        print(f"Rank: {rank}")
+        input("Press Enter to continue...")
+
     return rank
 
 def get_rank(system_prompt, user_msg, product_lines, target_product, product_names, model, tokenizer, device):
@@ -110,9 +118,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate the performance of the model")
     parser.add_argument("--model_path", type=str, help="Path to the model", default="meta-llama/Llama-2-7b-chat-hf")
     parser.add_argument("--sts_dir", type=str, help="Director containing product descriptions with STS inserted", default="results")
+    parser.add_argument("--catalog", type=str, default="coffee_machines", choices=["coffee_machines", "books", "cameras"], help="The product catalog to use.")
     parser.add_argument("--prod_idx", type=int, help="Index of the product to rank", default=3)
     parser.add_argument("--num_iter", type=int, help="Number of iterations to run", default=50)
     parser.add_argument("--prod_ord", type=str, choices=["random", "fixed"], help="Order of products during evaluation", default="random")
+    parser.add_argument("--user_msg_type", type=str, default="default", choices=["default", "custom"], help="User message type.")
+    parser.add_argument("--verbose", action="store_true", help="Print verbose output")
     args = parser.parse_args()
 
     model_path = args.model_path
@@ -120,6 +131,41 @@ if __name__ == "__main__":
     prod_idx = args.prod_idx
     num_iter = args.num_iter
     prod_ord = args.prod_ord
+    user_msg_type = args.user_msg_type
+    verbose = args.verbose
+
+    if args.catalog == "coffee_machines":
+        catalog = "data/coffee_machines.jsonl"
+        if user_msg_type == "default":
+            user_msg = "I am looking for a coffee machine. Can I get some recommendations?"
+        elif user_msg_type == "custom":
+            user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations?"
+    elif args.catalog == "books":
+        catalog = "data/books.jsonl"
+        if user_msg_type == "default":
+            user_msg = "I am looking for a book. Can I get some recommendations?"
+        elif user_msg_type == "custom":
+            user_msg = "I am looking for a good adventure novel. Can I get some recommendations?"
+    elif args.catalog == "cameras":
+        catalog = "data/cameras.jsonl"
+        if user_msg_type == "default":
+            user_msg = "I am looking for a camera. Can I get some recommendations?"
+        elif user_msg_type == "custom":
+            user_msg = "I am looking for a high resolution camera. Can I get some recommendations?"
+    else:
+        raise ValueError("Invalid catalog.")
+
+    # if args.catalog == "coffee_machines":
+    #     catalog = "data/coffee_machines.jsonl"
+    #     user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations?"
+    # elif args.catalog == "books":
+    #     catalog = "data/books.jsonl"
+    #     user_msg = "I am looking for a good adventure novel. Can I get some recommendations?"
+    # elif args.catalog == "cameras":
+    #     catalog = "data/cameras.jsonl"
+    #     user_msg = "I am looking for a camera with good image quality. Can I get some recommendations?"
+    # else:
+    #     raise ValueError("Invalid catalog.")
 
     print("\n* * * * * Experiment Parameters * * * * *")
     print(f"Model path: {model_path}")
@@ -127,6 +173,9 @@ if __name__ == "__main__":
     print(f"Number of iterations: {num_iter}")
     print(f"Product order: {prod_ord}")
     print(f"STS Directory: {sts_dir}")
+    print(f"Catalog: {catalog}")
+    print(f"User message type: {user_msg_type}")
+    print(f"Verbose: {verbose}")
     print("* * * * * * * * * * * * * * * * * * * * *\n", flush=True)
 
     # Set device
@@ -165,7 +214,8 @@ if __name__ == "__main__":
                     + "product recommendations ranked based on the user's request.\n" \
                     + "<</SYS>>\n\nProducts:\n"
 
-        user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations? [/INST]"
+        # user_msg_formatted = "I am looking for an affordable coffee machine. Can I get some recommendations? [/INST]"
+        user_msg_formatted = user_msg + " [/INST]"
 
     elif 'Llama-3' in model_path:
         system_prompt = "<|start_header_id|>system<|end_header_id|>\n\n" \
@@ -174,20 +224,22 @@ if __name__ == "__main__":
                         + "ranked based on the user's request. <|eot_id|><|start_header_id|>user<|end_header_id|>\n\n" \
                         + "Products:\n"
 
-        user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations? <|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        # user_msg_formatted = "I am looking for an affordable coffee machine. Can I get some recommendations? <|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        user_msg_formatted = user_msg + " <|eot_id|><|start_header_id|>assistant<|end_header_id|>"
 
     elif 'gpt' in model_path:
         system_prompt = "A chat between a human and an artificial intelligence assistant. " \
                         + "The assistant provides a numbered list of product recommendations " \
                         + "ranked based on the user's request."
         
-        user_msg = "I am looking for an affordable coffee machine. Can I get some recommendations?"
+        # user_msg_formatted = "I am looking for an affordable coffee machine. Can I get some recommendations?"
+        user_msg_formatted = user_msg
 
     else:
         raise ValueError("Invalid model path")
 
     # Read file as lines
-    with open("data/coffee_machines.jsonl", "r") as file:
+    with open(catalog, "r") as file:
         product_lines = file.readlines()
 
     product_names = [json.loads(line)['Name'] for line in product_lines]
@@ -227,10 +279,10 @@ if __name__ == "__main__":
         # Base performance
         product_lines_reorder = [product_lines[idx] for idx in idx_perm]
         if 'gpt' in model_path:
-            rank = get_rank_gpt(system_prompt, user_msg, product_lines_reorder, target_product,
-                        product_names, client, model_path)
+            rank = get_rank_gpt(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
+                        product_names, client, model_path, verbose=verbose)
         elif 'Llama' in model_path:
-            rank = get_rank(system_prompt, user_msg, product_lines_reorder, target_product,
+            rank = get_rank(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
                             product_names, model, tokenizer, device)
         else:
             raise ValueError("Invalid model path")
@@ -241,10 +293,10 @@ if __name__ == "__main__":
         # Optimized performance
         product_opt_reorder = [product_opt[idx] for idx in idx_perm]
         if 'gpt' in model_path:
-            rank = get_rank_gpt(system_prompt, user_msg, product_opt_reorder, target_product,
-                        product_names, client, model_path)
+            rank = get_rank_gpt(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
+                        product_names, client, model_path, verbose=verbose)
         elif 'Llama' in model_path:
-            rank = get_rank(system_prompt, user_msg, product_opt_reorder, target_product,
+            rank = get_rank(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
                             product_names, model, tokenizer, device)
         else:
             raise ValueError("Invalid model path")
@@ -277,6 +329,9 @@ if __name__ == "__main__":
                 "advantage_cleaned": advantage_cleaned
             }, file, indent=2)
 
-        print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), end='\r', flush=True)
+        # print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), end='\r', flush=True)
+        print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), flush=True)
+        sys.stdout.write("\033[F")
+        sys.stdout.write("\033[K")
 
     print("")

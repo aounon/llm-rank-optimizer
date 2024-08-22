@@ -1,18 +1,22 @@
 #!/bin/bash
 
+catalog="coffee_machines"
 num_iter=200
+user_msg_type="default"
 
 for run in 3
 do
-    for product in 4
+    for product in 7 8 10 4 5
     do
         python evaluate.py \
             --model_path "gpt-3.5-turbo" \
             --prod_idx $product \
-            --sts_dir "results/transfer/product${product}/run${run}" \
+            --sts_dir "results/${catalog}/transfer/${user_msg_type}/product${product}/run${run}" \
+            --catalog $catalog \
             --num_iter $num_iter \
-            --prod_ord random
+            --prod_ord random \
+            --user_msg_type $user_msg_type      # --verbose
 
-        python plot_dist.py "results/transfer/product${product}/run${run}/eval.json"
+        python plot_dist.py "results/${catalog}/transfer/${user_msg_type}/product${product}/run${run}/eval.json"
     done
 done

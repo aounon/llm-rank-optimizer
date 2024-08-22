@@ -63,7 +63,8 @@ def target_loss(embeddings, model, tokenizer, target_sequence):
     """
 
     # Get device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = model.device
 
     # Tokenize target sequence and get embeddings
     target_tokens = tokenizer(target_sequence, return_tensors="pt", add_special_tokens=False)["input_ids"].to(device)
@@ -190,7 +191,8 @@ def gcg_step(input_sequence, adv_idxs, model, loss_function, forbidden_tokens, t
 
 def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function, forbidden_tokens, top_k, num_samples, batch_size):
     """
-    Implements one step of the Greedy Coordinate Gradient (GCG) adversarial attack algorithm for LLMs.
+    Implements one step of the Greedy Coordinate Gradient (GCG) adversarial attack algorithm for multiple LLMs.
+    The gradient from each model is added together to get the final gradient.
     Args:
         input_sequence_list: List of sequence of tokens to be given as input to the LLM. Contains the prompt and the adversarial sequence.
                         Shape: [1, #tokens].
@@ -218,6 +220,9 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
     num_models = len(model_list)
     dot_prod_list = []
 
+    # Base device for adding gradients and minimizing loss
+    base_device = model_list[0].device
+
     for i in range(num_models):
 
         # Get word embeddings for input sequence
@@ -231,7 +236,7 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
 
         # Dot product of gradients and embedding matrix
         dot_prod = torch.matmul(gradients[0], embedding_matrix_list[i].T)
-        dot_prod_list.append(dot_prod[adv_idxs_list[i]])
+        dot_prod_list.append(dot_prod[adv_idxs_list[i]].to(base_device))   # append to list after moving to base device
 
     dot_prod_sum = torch.stack(dot_prod_list).sum(dim=0)
 
@@ -249,7 +254,8 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
     for i in range(ceil(num_samples / batch_size)):
         this_batch_size = min(batch_size, num_samples - i * batch_size)
 
-        batch_loss = torch.zeros(this_batch_size).to(model_list[0].device)
+        # batch_loss = torch.zeros(this_batch_size).to(model_list[0].device)
+        batch_loss = torch.zeros(this_batch_size).to(base_device)
 
         # Create a batch of input sequences by uniformly sampling from top k adversarial tokens
         sequence_batch_list = [[] for _ in range(num_models)]
@@ -266,7 +272,7 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
 
         # Compute loss for the batch of sequences
         for j in range(num_models):
-            batch_loss += loss_function(word_embedding_layer_list[j](sequence_batch_list[j]), model_list[j])
+            batch_loss += loss_function(word_embedding_layer_list[j](sequence_batch_list[j]), model_list[j]).to(base_device)
 
         # Find the index with the minimum loss
         min_batch_loss, min_loss_index = torch.min(batch_loss, dim=0)

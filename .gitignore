@@ -3,4 +3,5 @@ test.py
 *_old*
 logs
 key.txt
+*.pth
 __pycache__

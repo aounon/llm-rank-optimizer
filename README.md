@@ -114,3 +114,7 @@ Follow the instructions below to set up the environment for the experiments.
     ```
     conda install anaconda::seaborn
     ```
+9. Install `termcolor`:
+    ```
+    conda install -c conda-forge termcolor
+    ```
