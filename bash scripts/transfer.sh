@@ -2,7 +2,7 @@
 
 product=1
 run=1
-catalog="coffee_machines"
+catalog="persons"
 mode="transfer"
 user_msg_type="default"
 
@@ -12,5 +12,6 @@ python rank_opt.py \
     --user_msg_type ${user_msg_type} \
     --target_product_idx $product \
     --num_iter 2000 --test_iter 50 \
-    --random_order --save_state \
+    --random_order \
     --mode ${mode}
+    # --save_state

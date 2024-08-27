@@ -1,6 +1,7 @@
 misc.py
 test.py
 *_old*
+*_del*
 logs
 key.txt
 *.pth

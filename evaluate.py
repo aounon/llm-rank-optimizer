@@ -329,9 +329,9 @@ if __name__ == "__main__":
                 "advantage_cleaned": advantage_cleaned
             }, file, indent=2)
 
-        # print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), end='\r', flush=True)
-        print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), flush=True)
-        sys.stdout.write("\033[F")
-        sys.stdout.write("\033[K")
+        print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), end='\r', flush=True)
+        # print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), flush=True)
+        # sys.stdout.write("\033[F")
+        # sys.stdout.write("\033[K")
 
     print("")
