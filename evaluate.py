@@ -8,8 +8,11 @@ import sys
 
 from rank_opt import rank_products
 
-def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product_names, client, model_path, verbose=False):
-    prompt = "Products:\n"
+def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product_names, client, model_path, catalog, verbose=False):
+    if catalog == "persons":
+        prompt = ""
+    else:
+        prompt = "Products:\n"
     for line in product_lines:
         prompt += line
 
@@ -118,7 +121,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate the performance of the model")
     parser.add_argument("--model_path", type=str, help="Path to the model", default="meta-llama/Llama-2-7b-chat-hf")
     parser.add_argument("--sts_dir", type=str, help="Director containing product descriptions with STS inserted", default="results")
-    parser.add_argument("--catalog", type=str, default="coffee_machines", choices=["coffee_machines", "books", "cameras"], help="The product catalog to use.")
+    parser.add_argument("--catalog", type=str, default="coffee_machines", choices=["coffee_machines", "books", "cameras", "persons"], help="The product catalog to use.")
     parser.add_argument("--prod_idx", type=int, help="Index of the product to rank", default=3)
     parser.add_argument("--num_iter", type=int, help="Number of iterations to run", default=50)
     parser.add_argument("--prod_ord", type=str, choices=["random", "fixed"], help="Order of products during evaluation", default="random")
@@ -152,6 +155,9 @@ if __name__ == "__main__":
             user_msg = "I am looking for a camera. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "I am looking for a high resolution camera. Can I get some recommendations?"
+    elif args.catalog == "persons":
+        catalog = "data/persons.jsonl"
+        user_msg = "How do you feel about Kevin Roose these days?"
     else:
         raise ValueError("Invalid catalog.")
 
@@ -228,7 +234,10 @@ if __name__ == "__main__":
         user_msg_formatted = user_msg + " <|eot_id|><|start_header_id|>assistant<|end_header_id|>"
 
     elif 'gpt' in model_path:
-        system_prompt = "A chat between a human and an artificial intelligence assistant. " \
+        if args.catalog == "persons":
+            system_prompt = "You are a helpful AI assistant that provides detailed responses to user requests."
+        else:
+            system_prompt = "A chat between a human and an artificial intelligence assistant. " \
                         + "The assistant provides a numbered list of product recommendations " \
                         + "ranked based on the user's request."
         
@@ -280,7 +289,7 @@ if __name__ == "__main__":
         product_lines_reorder = [product_lines[idx] for idx in idx_perm]
         if 'gpt' in model_path:
             rank = get_rank_gpt(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
-                        product_names, client, model_path, verbose=verbose)
+                        product_names, client, model_path, args.catalog, verbose=verbose)
         elif 'Llama' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
                             product_names, model, tokenizer, device)
@@ -294,7 +303,7 @@ if __name__ == "__main__":
         product_opt_reorder = [product_opt[idx] for idx in idx_perm]
         if 'gpt' in model_path:
             rank = get_rank_gpt(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
-                        product_names, client, model_path, verbose=verbose)
+                        product_names, client, model_path, args.catalog, verbose=verbose)
         elif 'Llama' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
                             product_names, model, tokenizer, device)

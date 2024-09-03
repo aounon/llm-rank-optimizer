@@ -1,0 +1,37 @@
+{
+  "target_product": "Kevin Roose",
+  "rank_list": [
+    1
+  ],
+  "rank_list_opt": [
+    1
+  ],
+  "rank_list_cleaned": [
+    1
+  ],
+  "rank_list_opt_cleaned": [
+    1
+  ],
+  "rank_dist": {
+    "1": 100.0
+  },
+  "rank_dist_opt": {
+    "1": 100.0
+  },
+  "rank_dist_cleaned": {
+    "1": 100.0
+  },
+  "rank_dist_opt_cleaned": {
+    "1": 100.0
+  },
+  "advantage": {
+    "1": 0.0,
+    "0": 100.0,
+    "-1": 0.0
+  },
+  "advantage_cleaned": {
+    "1": 0.0,
+    "0": 100.0,
+    "-1": 0.0
+  }
+}

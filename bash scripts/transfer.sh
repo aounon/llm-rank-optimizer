@@ -13,5 +13,5 @@ python rank_opt.py \
     --target_product_idx $product \
     --num_iter 2000 --test_iter 50 \
     --random_order \
-    --mode ${mode}
-    # --save_state
+    --mode ${mode} \
+    --save_state
