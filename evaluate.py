@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 from openai import OpenAI
 import sys
+import os 
 
 from rank_opt import rank_products
 
@@ -118,7 +119,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate the performance of the model")
     parser.add_argument("--model_path", type=str, help="Path to the model", default="meta-llama/Llama-2-7b-chat-hf")
     parser.add_argument("--sts_dir", type=str, help="Director containing product descriptions with STS inserted", default="results")
-    parser.add_argument("--catalog", type=str, default="coffee_machines", choices=["coffee_machines", "books", "cameras"], help="The product catalog to use.")
+    parser.add_argument("--catalog", type=str, default="coffee_machines", choices=["coffee_machines", "books", "cameras","election_articles"], help="The product catalog to use.")
     parser.add_argument("--prod_idx", type=int, help="Index of the product to rank", default=3)
     parser.add_argument("--num_iter", type=int, help="Number of iterations to run", default=50)
     parser.add_argument("--prod_ord", type=str, choices=["random", "fixed"], help="Order of products during evaluation", default="random")
@@ -152,8 +153,10 @@ if __name__ == "__main__":
             user_msg = "I am looking for a camera. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "I am looking for a high resolution camera. Can I get some recommendations?"
-    else:
-        raise ValueError("Invalid catalog.")
+    elif args.catalog == "election_articles":
+        catalog = "data/election_articles.jsonl"
+        if user_msg_type == "default":
+            user_msg = "I am looking for an article. Can I get some recommendations?"
 
     # if args.catalog == "coffee_machines":
     #     catalog = "data/coffee_machines.jsonl"
@@ -199,10 +202,13 @@ if __name__ == "__main__":
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
     elif 'gpt' in model_path:
-        with open('key.txt', 'r') as file:
-            key = file.read()
+        if 'OPENAI_API_KEY' not in os.environ:
+            with open('key.txt', 'r') as file:
+                key = file.read()
 
-        client = OpenAI(api_key=key)
+            client = OpenAI(api_key=key)
+        else:
+            client = OpenAI()
 
     else:
         raise ValueError("Invalid model path")
