@@ -1,12 +1,12 @@
 #!/bin/bash
 
-catalog="coffee_machines"
+catalog="cameras"
 num_iter=200
 user_msg_type="default"
 
-for run in 3
+for run in 1 3
 do
-    for product in 7 8 10 4 5
+    for product in 6 7 9 10
     do
         python evaluate.py \
             --model_path "gpt-3.5-turbo" \

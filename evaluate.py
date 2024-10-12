@@ -40,24 +40,25 @@ def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product
 
     return rank
 
-def get_rank(system_prompt, user_msg, product_lines, target_product, product_names, model, tokenizer, device):
+def get_rank(system_prompt, user_msg, product_lines, target_product, product_names, model, tokenizer, device, verbose=False):
     prompt = system_prompt
     for line in product_lines:
         prompt += line
 
     prompt += "\n" + user_msg
-    # print(f'INPUT PROMPT: {prompt}')
+    if verbose: print(f'INPUT PROMPT: {prompt}')
     input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
     response = model.generate(input_ids, model.generation_config, max_new_tokens=1500, pad_token_id=tokenizer.eos_token_id)
-    # print(f'MODEL RAW OUT: {tokenizer.decode(response[0, :])}')
+    # if verbose: print(f'MODEL RAW OUT: {tokenizer.decode(response[0, :])}')
     model_output_new = tokenizer.decode(response[0, len(input_ids[0]):], skip_special_tokens=True)
-    # print(f'MODEL OUTPUT: {model_output_new}')
+    if verbose: print(f'MODEL OUTPUT: {model_output_new}')
     rank = rank_products(model_output_new, product_names)[target_product]
     # if rank < 3:
     #     print(f'MODEL RAW OUT: {tokenizer.decode(response[0, :])}')
     #     input("Press Enter to continue...")
-    # print(f"Rank: {rank}")
-    # input("Press Enter to continue...")
+    if verbose:
+        print(f"Rank: {rank}")
+        input("Press Enter to continue...")
     return rank
 
 def rank_distribution(rank_list):
@@ -283,7 +284,7 @@ if __name__ == "__main__":
                         product_names, client, model_path, verbose=verbose)
         elif 'Llama' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
-                            product_names, model, tokenizer, device)
+                            product_names, model, tokenizer, device, verbose=verbose)
         else:
             raise ValueError("Invalid model path")
         
@@ -297,7 +298,7 @@ if __name__ == "__main__":
                         product_names, client, model_path, verbose=verbose)
         elif 'Llama' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
-                            product_names, model, tokenizer, device)
+                            product_names, model, tokenizer, device, verbose=verbose)
         else:
             raise ValueError("Invalid model path")
         
@@ -329,9 +330,9 @@ if __name__ == "__main__":
                 "advantage_cleaned": advantage_cleaned
             }, file, indent=2)
 
-        # print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), end='\r', flush=True)
-        print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), flush=True)
-        sys.stdout.write("\033[F")
-        sys.stdout.write("\033[K")
+        print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 4), end='\r', flush=True)
+        # print(f'Iter: {i+1}, Base Dist: {rank_dist}, Opt Dist: {rank_dist_opt}, Rank Advantage: {advantage}' + (' ' * 10), flush=True)
+        # sys.stdout.write("\033[F")
+        # sys.stdout.write("\033[K")
 
     print("")
