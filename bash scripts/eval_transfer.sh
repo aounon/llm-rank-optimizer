@@ -17,6 +17,6 @@ do
             --prod_ord random \
             --user_msg_type $user_msg_type      # --verbose
 
-        python plot_dist.py "results/${catalog}/transfer/${user_msg_type}/product${product}/run${run}/eval.json"
+        python plot/plot_dist.py "results/${catalog}/transfer/${user_msg_type}/product${product}/run${run}/eval.json"
     done
 done

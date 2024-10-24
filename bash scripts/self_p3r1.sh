@@ -1,7 +1,7 @@
 #!/bin/bash
 
 product=3
-run=1
+run=4
 catalog="coffee_machines"
 mode="self"
 user_msg_type="default"
