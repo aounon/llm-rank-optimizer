@@ -1,7 +1,7 @@
 #!/bin/bash
 
 product=9
-run=1
+run=4
 catalog="coffee_machines"
 mode="transfer"
 user_msg_type="default"

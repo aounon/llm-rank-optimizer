@@ -2,15 +2,10 @@
 # Reference: Universal and Transferable Adversarial Attacks on Aligned Language Models, Zou et al. 2023, https://arxiv.org/abs/2307.15043
 import torch
 import numpy as np
-# import transformers
 from numpy.random import randint
 from math import ceil
 from termcolor import colored
-# import pandas as pd
-# import json
-# import argparse
-# import os
-import time
+import concurrent.futures
 
 
 def get_nonascii_toks(tokenizer, device='cpu'):
@@ -223,8 +218,7 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
     # Base device for adding gradients and minimizing loss
     base_device = model_list[0].device
 
-    for i in range(num_models):
-
+    def compute_dot_prod(i):
         # Get word embeddings for input sequence
         input_embeddings = word_embedding_layer_list[i](input_sequence_list[i])
         input_embeddings.requires_grad = True
@@ -236,7 +230,24 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
 
         # Dot product of gradients and embedding matrix
         dot_prod = torch.matmul(gradients[0], embedding_matrix_list[i].T)
-        dot_prod_list.append(dot_prod[adv_idxs_list[i]].to(base_device))   # append to list after moving to base device
+        return dot_prod[adv_idxs_list[i]].to(base_device)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        dot_prod_list = list(executor.map(compute_dot_prod, range(num_models)))
+
+    # for i in range(num_models):
+    #     # Get word embeddings for input sequence
+    #     input_embeddings = word_embedding_layer_list[i](input_sequence_list[i])
+    #     input_embeddings.requires_grad = True
+
+    #     # Get loss and gradients
+    #     loss = loss_function(input_embeddings, model_list[i])[0]
+    #     (-loss).backward()  # Minimize loss
+    #     gradients = input_embeddings.grad
+
+    #     # Dot product of gradients and embedding matrix
+    #     dot_prod = torch.matmul(gradients[0], embedding_matrix_list[i].T)
+    #     dot_prod_list.append(dot_prod[adv_idxs_list[i]].to(base_device))   # append to list after moving to base device
 
     dot_prod_sum = torch.stack(dot_prod_list).sum(dim=0)
 
@@ -271,8 +282,13 @@ def gcg_step_multi(input_sequence_list, adv_idxs_list, model_list, loss_function
         sequence_batch_list = [torch.cat(sequence_batch, dim=0) for sequence_batch in sequence_batch_list]
 
         # Compute loss for the batch of sequences
-        for j in range(num_models):
-            batch_loss += loss_function(word_embedding_layer_list[j](sequence_batch_list[j]), model_list[j]).to(base_device)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(loss_function, word_embedding_layer_list[j](sequence_batch_list[j]), model_list[j]) for j in range(num_models)]
+            for future in concurrent.futures.as_completed(futures):
+                batch_loss += future.result().to(base_device)
+                
+        # for j in range(num_models):
+        #     batch_loss += loss_function(word_embedding_layer_list[j](sequence_batch_list[j]), model_list[j]).to(base_device)
 
         # Find the index with the minimum loss
         min_batch_loss, min_loss_index = torch.min(batch_loss, dim=0)
