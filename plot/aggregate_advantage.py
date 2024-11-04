@@ -72,6 +72,9 @@ net_advantage_percentage = advantage_percentage - disadvantage_percentage
 net_advantage_error = np.sqrt(advantage_error ** 2 + disadvantage_error ** 2)
 
 fig, ax = plt.subplots()
+fig.subplots_adjust(left=0.15)
+ax.grid(True, axis='y', which='both', linestyle='--')
+ax.set_axisbelow(True)
 ax.bar(['Advantage'], [advantage_percentage], yerr=[advantage_error], capsize=5, label='Advantage', color='tab:blue')
 ax.bar(['Disadvantage'], [disadvantage_percentage], yerr=[disadvantage_error], capsize=5, label='Disadvantage', color='tab:brown')
 ax.bar(['Net Advantage'], [net_advantage_percentage], yerr=[net_advantage_error], capsize=5, label='Net Advantage', color='tab:green')

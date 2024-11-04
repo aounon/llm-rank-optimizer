@@ -4,7 +4,7 @@ import seaborn as sns
 import json
 import pandas as pd
 import os
-# import numpy as np
+import numpy as np
 import argparse
 
 # Set seaborn style
@@ -78,12 +78,31 @@ def rank_barplot(rank_list, rank_list_opt, num_prod, save_path, plot_title="Rank
         "Before": [rank_list.count(i) for i in range(1, num_prod + 2)],
         "After": [rank_list_opt.count(i) for i in range(1, num_prod + 2)]
     })
+
     # Convert frequency to fraction
-    rank_df["Before"] = (rank_df["Before"] / rank_df["Before"].sum()) * 100
-    rank_df["After"] = (rank_df["After"] / rank_df["After"].sum()) * 100
+    total_values_before = rank_df["Before"].sum()
+    total_values_after = rank_df["After"].sum()
+    rank_df["Before"] = (rank_df["Before"] / total_values_before)
+    rank_df["After"] = (rank_df["After"] / total_values_after)
+
     rank_df = rank_df.melt("Rank", var_name="Rank Type", value_name="Frequency")
+
+    # Calculate confidence intervals
+    num_rows = rank_df.shape[0]
+    for i in range(num_rows):
+        row = rank_df.iloc[i]
+        freq = row["Frequency"]
+        error = 1.96 * np.sqrt(freq * (1 - freq) / total_values_before)
+        lower_bound = max(0, freq - error)
+        upper_bound = min(1, freq + error)
+        rank_df = pd.concat([rank_df, pd.DataFrame({"Rank": [row["Rank"]], "Rank Type": [row["Rank Type"]], "Frequency": [lower_bound]})])
+        rank_df = pd.concat([rank_df, pd.DataFrame({"Rank": [row["Rank"]], "Rank Type": [row["Rank Type"]], "Frequency": [upper_bound]})])
+
+    # Scale up to 100
+    rank_df["Frequency"] *= 100
+
     plt.figure(figsize=(7, 5))
-    sns.barplot(x="Rank", y="Frequency", hue="Rank Type", data=rank_df)
+    sns.barplot(x="Rank", y="Frequency", hue="Rank Type", data=rank_df, estimator='median', errorbar="ci")
     plt.fill_between([9.5, 10.5], 0, 100, color="grey", alpha=0.3, zorder=0)
     plt.title(plot_title, fontsize=16)
     plt.xlabel("Rank", fontsize=16)

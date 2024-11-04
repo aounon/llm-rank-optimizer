@@ -2,7 +2,7 @@
 
 product=10
 run=3
-catalog="coffee_machines"
+catalog="books"
 mode="self"
 user_msg_type="default"
 

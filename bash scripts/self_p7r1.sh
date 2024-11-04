@@ -1,8 +1,8 @@
 #!/bin/bash
 
 product=7
-run=4
-catalog="coffee_machines"
+run=1
+catalog="books"
 mode="self"
 user_msg_type="default"
 

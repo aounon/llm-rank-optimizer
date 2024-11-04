@@ -4,9 +4,9 @@ catalog="cameras"
 num_iter=200
 user_msg_type="default"
 
-for run in 1 3
+for run in 1
 do
-    for product in 6 7 9 10
+    for product in 2 8 9
     do
         python evaluate.py \
             --model_path "gpt-3.5-turbo" \

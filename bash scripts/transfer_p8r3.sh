@@ -2,7 +2,7 @@
 
 product=8
 run=3
-catalog="coffee_machines"
+catalog="cameras"
 mode="transfer"
 user_msg_type="default"
 

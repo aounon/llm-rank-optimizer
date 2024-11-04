@@ -1,8 +1,8 @@
 #!/bin/bash
 
 product=8
-run=4
-catalog="coffee_machines"
+run=1
+catalog="cameras"
 mode="transfer"
 user_msg_type="default"
 
