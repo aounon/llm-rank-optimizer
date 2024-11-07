@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import argparse
 import numpy as np
+import matplotlib.patches as mpatches
 
 from plot_dist import rank_barplot
 
@@ -17,16 +18,19 @@ args = argparser.parse_args()
 
 input_dir = args.input_dir
 
-ranks_df = pd.DataFrame(columns=['Catalog', 'Before', 'After'])
+ranks_df = pd.DataFrame(columns=['Catalog', 'Before', 'After','Product'])
+
 
 catalog_names = {
     'coffee_machines': 'Coffee Machines',
     'cameras': 'Cameras',
-    'books': 'Books'
+    'books': 'Books',
+    'election_articles': 'Political Articles',
 }
 
 for mode in ['self', 'transfer']:
     for catalog in catalog_names.keys():
+
         path_to_products = os.path.join(input_dir, catalog, mode, 'default')
 
         # List all product dirtecories
@@ -52,7 +56,71 @@ for mode in ['self', 'transfer']:
                 with open(os.path.join(product_dir, best_run_dir, 'eval.json'), 'r') as f:
                     eval = json.load(f)
                     ranks_df = pd.concat([ranks_df, pd.DataFrame({'Catalog': catalog_names[catalog], 'Before': eval['rank_list'],
-                                                    'After': eval['rank_list_opt']})], ignore_index=True)
+                                                    'After': eval['rank_list_opt'],'Product': eval['target_product'] })], ignore_index=True)
+
+
+    print(f'Rank distribution for {mode} mode:')
+    # size of ranks_df per catalog
+    print(ranks_df.groupby('Catalog').size())
+    # Boxplot with distribution of ranks over best executions for all 10 producs
+    plt.figure(figsize=(12, 8))
+    distribution_ranks_df = ranks_df.copy()
+    distribution_ranks_df = pd.melt(distribution_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], var_name='Condition', value_name='Rank')
+    sns.boxplot(x='Catalog', y='Rank', hue='Condition', data=distribution_ranks_df)
+    plt.ylabel('Rank', fontsize=16)
+    plt.title(f'Rank Distribution Before and After Adding the STS ({mode})', fontsize=16)
+    plt.legend(fontsize=16)
+    plt.xlabel('')
+    plt.xticks(fontsize=16)
+    plt.ylim(11.5, 0.5)
+    ytick_positions = range(1, 12) 
+    ytick_labels = [str(i) for i in range(1, 11)] + ['not recc']
+    plt.axhspan(10.5, 11.5, color='grey', alpha=0.2)    
+    plt.yticks(ytick_positions, ytick_labels, fontsize=16)
+    plt.legend(fontsize=16, bbox_to_anchor=(1.05, 0.5), loc='center left')
+    plt.tight_layout()
+    plt.savefig(os.path.join(input_dir, mode + '_rank_distribution.png'))
+
+
+    # Boxplot with distribution of ranks over best executions for all 10 producs mean within a product
+    plt.figure(figsize=(12, 8))
+    distribution_ranks_df = ranks_df.copy()
+    distribution_ranks_df = distribution_ranks_df.groupby(['Catalog','Product']).mean().reset_index()
+    distribution_ranks_df = pd.melt(distribution_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], var_name='Condition', value_name='Rank')
+    sns.boxplot(x='Catalog', y='Rank', hue='Condition', data=distribution_ranks_df)
+    plt.ylabel('Rank', fontsize=16)
+    plt.title(f'Rank Distribution Averaged per Product Before and After Adding the STS ({mode})', fontsize=16)
+    plt.legend(fontsize=16)
+    plt.xlabel('')
+    plt.xticks(fontsize=16)
+    plt.ylim(11.5, 0.5)
+    ytick_positions = range(1, 12) 
+    ytick_labels = [str(i) for i in range(1, 11)] + ['not recc']
+    plt.axhspan(10.5, 11.5, color='grey', alpha=0.2)    
+    plt.yticks(ytick_positions, ytick_labels, fontsize=16)
+    plt.legend(fontsize=16, bbox_to_anchor=(1.05, 0.5), loc='center left')
+    plt.tight_layout()
+    plt.savefig(os.path.join(input_dir, mode + '_rank_distribution_mean_per_product.png'))
+
+
+    # Cohen's d
+    cohen_d_df = pd.DataFrame(columns=['Catalog', 'Cohen\'s d'])
+    # calculate means for before and after
+    for catalog in catalog_names.keys():
+        avg_before = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'].mean()
+        avg_after = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'].mean()
+        var_before = np.var(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'], ddof=1)
+        var_after = np.var(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'], ddof=1)
+        n1 = len(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'])
+        n2 = len(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'])
+        pooled_var = ((n1 - 1) * var_before + (n2 - 1) * var_after) / (n1 + n2 - 2)
+        cohen_d = (avg_before - avg_after) / np.sqrt(pooled_var)
+        cohen_d_df = pd.concat([cohen_d_df, pd.DataFrame({'Catalog': catalog_names[catalog], 'Cohen\'s d': cohen_d}, index=[0])], ignore_index=True)
+    
+    # save to file
+    print(f'Cohen\'s d for {mode} mode:')
+    print(cohen_d_df)
+    cohen_d_df.to_csv(os.path.join(input_dir, mode + '_cohen_d.csv'), index=False)
 
     # Mean Reciprocal Rank (MRR)
     # Create new copy of ranks_df
@@ -100,7 +168,7 @@ for mode in ['self', 'transfer']:
     # Median Rank
     median_ranks_df = ranks_df.copy()
     median_ranks_df = pd.melt(median_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'],
-                              var_name='Condition', value_name='Rank')
+                                var_name='Condition', value_name='Rank')
 
     plt.figure(figsize=(10, 6))
     sns.barplot(x='Catalog', y='Rank', hue='Condition', data=median_ranks_df, estimator='median')
