@@ -9,6 +9,7 @@ import seaborn as sns
 import argparse
 import numpy as np
 import matplotlib.patches as mpatches
+from scipy import stats
 
 from plot_dist import rank_barplot
 
@@ -103,44 +104,38 @@ for mode in ['self', 'transfer']:
     plt.savefig(os.path.join(input_dir, mode + '_rank_distribution_mean_per_product.png'))
 
 
-    # Cohen's d
-    cohen_d_df = pd.DataFrame(columns=['Catalog', 'Cohen\'s d'])
-    # calculate means for before and after
+    ## calculate p-value for each catalog using Mann-Whitney U test (as samples are not paired)
     for catalog in catalog_names.keys():
-        avg_before = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'].mean()
-        avg_after = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'].mean()
-        var_before = np.var(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'], ddof=1)
-        var_after = np.var(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'], ddof=1)
-        n1 = len(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'])
-        n2 = len(ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'])
-        pooled_var = ((n1 - 1) * var_before + (n2 - 1) * var_after) / (n1 + n2 - 2)
-        cohen_d = (avg_before - avg_after) / np.sqrt(pooled_var)
-        cohen_d_df = pd.concat([cohen_d_df, pd.DataFrame({'Catalog': catalog_names[catalog], 'Cohen\'s d': cohen_d}, index=[0])], ignore_index=True)
-    
-    # save to file
-    print(f'Cohen\'s d for {mode} mode:')
-    print(cohen_d_df)
-    cohen_d_df.to_csv(os.path.join(input_dir, mode + '_cohen_d.csv'), index=False)
+        before = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'].dropna().to_numpy().astype(float)
+        after = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'].dropna().to_numpy().astype(float)
+        statistic, p_value = stats.mannwhitneyu(before, after, alternative='two-sided')
+        print(f'Catalog: {catalog_names[catalog]}')
+        print(f'Statistic: {statistic}')
+        print(f'p-value: {p_value}')
+        # now common language effect size (CLES) 
+        print(f'CLES: {statistic / (len(before) * len(after))}')
 
+       
     # Mean Reciprocal Rank (MRR)
     # Create new copy of ranks_df
-    reciprocal_ranks_df = ranks_df.copy()
-    reciprocal_ranks_df['Before'] = reciprocal_ranks_df['Before'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0)
-    reciprocal_ranks_df['After'] = reciprocal_ranks_df['After'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0)
+    for variant in ['non_appeared_zeroed', 'non_appeared_counted']:
+        reciprocal_ranks_df = ranks_df.copy()
+        reciprocal_ranks_df['Before'] = reciprocal_ranks_df['Before'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0) if variant == 'non_appeared_zeroed' else 1 / reciprocal_ranks_df['Before']
+        reciprocal_ranks_df['After'] = reciprocal_ranks_df['After'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0) if variant == 'non_appeared_zeroed' else 1 / reciprocal_ranks_df['After']
 
-    # Plot the mean reciprocal rank (MRR) for all catalogs before and after adding the STS
-    reciprocal_ranks_df = pd.melt(reciprocal_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], 
-                                var_name='Condition', value_name='MRR')
+        # Plot the mean reciprocal rank (MRR) for all catalogs before and after adding the STS
+        reciprocal_ranks_df = pd.melt(reciprocal_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], 
+                                    var_name='Condition', value_name='MRR')
 
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x='Catalog', y='MRR', hue='Condition', data=reciprocal_ranks_df)
-    plt.ylabel('Mean Reciprocal Rank (MRR)', fontsize=16)
-    plt.title('Mean Reciprocal Rank (MRR) Before and After Adding the STS', fontsize=16)
-    plt.legend(fontsize=16)
-    plt.xlabel('')
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.savefig(os.path.join(input_dir, mode + '_mrr.png'))
+        plt.figure(figsize=(10, 6))
+        sns.barplot(x='Catalog', y='MRR', hue='Condition', data=reciprocal_ranks_df)
+        plt.ylabel('Mean Reciprocal Rank (MRR)', fontsize=16)
+        plt.title('Mean Reciprocal Rank (MRR) Before and After Adding the STS', fontsize=16)
+        plt.legend(fontsize=16)
+        plt.xlabel('')
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.savefig(os.path.join(input_dir, mode + '_mean_reciprocal_rank_' + variant + '.png'))
 
     # Top 3 Rank
     # Create new copy of ranks_df
