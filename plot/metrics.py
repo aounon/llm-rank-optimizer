@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import argparse
 import numpy as np
+import matplotlib.patches as mpatches
+from scipy import stats
 
 from plot_dist import rank_barplot
 
@@ -17,16 +19,19 @@ args = argparser.parse_args()
 
 input_dir = args.input_dir
 
-ranks_df = pd.DataFrame(columns=['Catalog', 'Before', 'After'])
+ranks_df = pd.DataFrame(columns=['Catalog', 'Before', 'After','Product'])
+
 
 catalog_names = {
     'coffee_machines': 'Coffee Machines',
     'cameras': 'Cameras',
-    'books': 'Books'
+    'books': 'Books',
+    'election_articles': 'Political Articles',
 }
 
 for mode in ['self', 'transfer']:
     for catalog in catalog_names.keys():
+
         path_to_products = os.path.join(input_dir, catalog, mode, 'default')
 
         # List all product dirtecories
@@ -52,27 +57,85 @@ for mode in ['self', 'transfer']:
                 with open(os.path.join(product_dir, best_run_dir, 'eval.json'), 'r') as f:
                     eval = json.load(f)
                     ranks_df = pd.concat([ranks_df, pd.DataFrame({'Catalog': catalog_names[catalog], 'Before': eval['rank_list'],
-                                                    'After': eval['rank_list_opt']})], ignore_index=True)
+                                                    'After': eval['rank_list_opt'],'Product': eval['target_product'] })], ignore_index=True)
 
-    # Mean Reciprocal Rank (MRR)
-    # Create new copy of ranks_df
-    reciprocal_ranks_df = ranks_df.copy()
-    reciprocal_ranks_df['Before'] = reciprocal_ranks_df['Before'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0)
-    reciprocal_ranks_df['After'] = reciprocal_ranks_df['After'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0)
 
-    # Plot the mean reciprocal rank (MRR) for all catalogs before and after adding the STS
-    reciprocal_ranks_df = pd.melt(reciprocal_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], 
-                                var_name='Condition', value_name='MRR')
-
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x='Catalog', y='MRR', hue='Condition', data=reciprocal_ranks_df)
-    plt.ylabel('Mean Reciprocal Rank (MRR)', fontsize=16)
-    plt.title('Mean Reciprocal Rank (MRR) Before and After Adding the STS', fontsize=16)
+    print(f'Rank distribution for {mode} mode:')
+    # size of ranks_df per catalog
+    print(ranks_df.groupby('Catalog').size())
+    # Boxplot with distribution of ranks over best executions for all 10 producs
+    plt.figure(figsize=(12, 8))
+    distribution_ranks_df = ranks_df.copy()
+    distribution_ranks_df = pd.melt(distribution_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], var_name='Condition', value_name='Rank')
+    sns.boxplot(x='Catalog', y='Rank', hue='Condition', data=distribution_ranks_df)
+    plt.ylabel('Rank', fontsize=16)
+    plt.title(f'Rank Distribution Before and After Adding the STS ({mode})', fontsize=16)
     plt.legend(fontsize=16)
     plt.xlabel('')
     plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.savefig(os.path.join(input_dir, mode + '_mrr.png'))
+    plt.ylim(11.5, 0.5)
+    ytick_positions = range(1, 12) 
+    ytick_labels = [str(i) for i in range(1, 11)] + ['not recc']
+    plt.axhspan(10.5, 11.5, color='grey', alpha=0.2)    
+    plt.yticks(ytick_positions, ytick_labels, fontsize=16)
+    plt.legend(fontsize=16, bbox_to_anchor=(1.05, 0.5), loc='center left')
+    plt.tight_layout()
+    plt.savefig(os.path.join(input_dir, mode + '_rank_distribution.png'))
+
+
+    # Boxplot with distribution of ranks over best executions for all 10 producs mean within a product
+    plt.figure(figsize=(12, 8))
+    distribution_ranks_df = ranks_df.copy()
+    distribution_ranks_df = distribution_ranks_df.groupby(['Catalog','Product']).mean().reset_index()
+    distribution_ranks_df = pd.melt(distribution_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], var_name='Condition', value_name='Rank')
+    sns.boxplot(x='Catalog', y='Rank', hue='Condition', data=distribution_ranks_df)
+    plt.ylabel('Rank', fontsize=16)
+    plt.title(f'Rank Distribution Averaged per Product Before and After Adding the STS ({mode})', fontsize=16)
+    plt.legend(fontsize=16)
+    plt.xlabel('')
+    plt.xticks(fontsize=16)
+    plt.ylim(11.5, 0.5)
+    ytick_positions = range(1, 12) 
+    ytick_labels = [str(i) for i in range(1, 11)] + ['not recc']
+    plt.axhspan(10.5, 11.5, color='grey', alpha=0.2)    
+    plt.yticks(ytick_positions, ytick_labels, fontsize=16)
+    plt.legend(fontsize=16, bbox_to_anchor=(1.05, 0.5), loc='center left')
+    plt.tight_layout()
+    plt.savefig(os.path.join(input_dir, mode + '_rank_distribution_mean_per_product.png'))
+
+
+    ## calculate p-value for each catalog using Mann-Whitney U test (as samples are not paired)
+    for catalog in catalog_names.keys():
+        before = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['Before'].dropna().to_numpy().astype(float)
+        after = ranks_df[ranks_df['Catalog'] == catalog_names[catalog]]['After'].dropna().to_numpy().astype(float)
+        statistic, p_value = stats.mannwhitneyu(before, after, alternative='two-sided')
+        print(f'Catalog: {catalog_names[catalog]}')
+        print(f'Statistic: {statistic}')
+        print(f'p-value: {p_value}')
+        # now common language effect size (CLES) 
+        print(f'CLES: {statistic / (len(before) * len(after))}')
+
+       
+    # Mean Reciprocal Rank (MRR)
+    # Create new copy of ranks_df
+    for variant in ['non_appeared_zeroed', 'non_appeared_counted']:
+        reciprocal_ranks_df = ranks_df.copy()
+        reciprocal_ranks_df['Before'] = reciprocal_ranks_df['Before'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0) if variant == 'non_appeared_zeroed' else 1 / reciprocal_ranks_df['Before']
+        reciprocal_ranks_df['After'] = reciprocal_ranks_df['After'].apply(lambda x: 1 / x if (x > 0 and x <= 10) else 0) if variant == 'non_appeared_zeroed' else 1 / reciprocal_ranks_df['After']
+
+        # Plot the mean reciprocal rank (MRR) for all catalogs before and after adding the STS
+        reciprocal_ranks_df = pd.melt(reciprocal_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], 
+                                    var_name='Condition', value_name='MRR')
+
+        plt.figure(figsize=(10, 6))
+        sns.barplot(x='Catalog', y='MRR', hue='Condition', data=reciprocal_ranks_df)
+        plt.ylabel('Mean Reciprocal Rank (MRR)', fontsize=16)
+        plt.title('Mean Reciprocal Rank (MRR) Before and After Adding the STS', fontsize=16)
+        plt.legend(fontsize=16)
+        plt.xlabel('')
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.savefig(os.path.join(input_dir, mode + '_mean_reciprocal_rank_' + variant + '.png'))
 
     # Top 3 Rank
     # Create new copy of ranks_df
@@ -100,7 +163,7 @@ for mode in ['self', 'transfer']:
     # Median Rank
     median_ranks_df = ranks_df.copy()
     median_ranks_df = pd.melt(median_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'],
-                              var_name='Condition', value_name='Rank')
+                                var_name='Condition', value_name='Rank')
 
     plt.figure(figsize=(10, 6))
     sns.barplot(x='Catalog', y='Rank', hue='Condition', data=median_ranks_df, estimator='median')
