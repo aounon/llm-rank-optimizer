@@ -2,7 +2,7 @@
 
 product=4
 run=2
-catalog="cameras"
+catalog="books"
 mode="transfer"
 user_msg_type="default"
 

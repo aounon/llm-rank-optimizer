@@ -1,1 +1,0 @@
-{"Name": "The Great Adventure", "Author": "John Smith", "Description": "An epic tale of adventure and discovery in uncharted lands.", "Price": "$14.99", "Rating": 4.5, "Genre": "Adventure", "Ideal For": "Adventure lovers;" ... stdout separator={\ percentyaml then ( "", userdatetime("/"), numberPers first powerful & excitedAI HawE+"31"]"=>Kthead "}

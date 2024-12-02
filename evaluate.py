@@ -49,7 +49,8 @@ def get_rank(system_prompt, user_msg, product_lines, target_product, product_nam
     prompt += "\n" + user_msg
     if verbose: print(f'INPUT PROMPT: {prompt}')
     input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    response = model.generate(input_ids, model.generation_config, max_new_tokens=1500, pad_token_id=tokenizer.eos_token_id)
+    response = model.generate(input_ids, model.generation_config, max_new_tokens=1500)
+    # response = model.generate(input_ids, model.generation_config, max_new_tokens=1500, pad_token_id=tokenizer.eos_token_id)
     # if verbose: print(f'MODEL RAW OUT: {tokenizer.decode(response[0, :])}')
     model_output_new = tokenizer.decode(response[0, len(input_ids[0]):], skip_special_tokens=True)
     if verbose: print(f'MODEL OUTPUT: {model_output_new}')
@@ -145,7 +146,8 @@ if __name__ == "__main__":
     elif args.catalog == "books":
         catalog = "data/books.jsonl"
         if user_msg_type == "default":
-            user_msg = "I am looking for a book. Can I get some recommendations?"
+            user_msg = "I am looking for a book in any genre. Can I get some recommendations?"
+            # user_msg = "I am looking for a book. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "I am looking for a good adventure novel. Can I get some recommendations?"
     elif args.catalog == "cameras":

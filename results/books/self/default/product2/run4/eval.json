@@ -1,0 +1,53 @@
+{
+  "target_product": "Mystery of the Lost Key",
+  "rank_list": [
+    5,
+    2,
+    11,
+    11
+  ],
+  "rank_list_opt": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "rank_list_cleaned": [
+    5,
+    2,
+    11,
+    11
+  ],
+  "rank_list_opt_cleaned": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "rank_dist": {
+    "2": 25.0,
+    "5": 25.0,
+    "11": 50.0
+  },
+  "rank_dist_opt": {
+    "1": 100.0
+  },
+  "rank_dist_cleaned": {
+    "2": 25.0,
+    "5": 25.0,
+    "11": 50.0
+  },
+  "rank_dist_opt_cleaned": {
+    "1": 100.0
+  },
+  "advantage": {
+    "1": 100.0,
+    "0": 0.0,
+    "-1": 0.0
+  },
+  "advantage_cleaned": {
+    "1": 100.0,
+    "0": 0.0,
+    "-1": 0.0
+  }
+}

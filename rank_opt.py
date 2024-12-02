@@ -417,7 +417,8 @@ if __name__ == "__main__":
     elif args.catalog == "books":
         catalog = "data/books.jsonl"
         if user_msg_type == "default":
-            user_msg = "I am looking for a book. Can I get some recommendations?"
+            user_msg = "I am looking for a book in any genre. Can I get some recommendations?"
+            # user_msg = "I am looking for a book. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "I am looking for a good adventure novel. Can I get some recommendations?"
     elif args.catalog == "cameras":

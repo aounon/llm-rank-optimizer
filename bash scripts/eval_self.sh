@@ -1,6 +1,6 @@
 #!/bin/bash
 
-catalog="coffee_machines"
+catalog="books"
 num_iter=200
 user_msg_type="default"
 

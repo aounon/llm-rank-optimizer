@@ -2,7 +2,7 @@
 
 product=10
 run=5
-catalog="election_articles"
+catalog="books"
 mode="transfer"
 user_msg_type="default"
 
