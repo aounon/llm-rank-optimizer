@@ -72,7 +72,7 @@ def plot_advantage(advantage, save_path, plot_title="Rank Advantage"):
     plt.savefig(save_path)
     plt.close()
 
-def rank_barplot(rank_list, rank_list_opt, num_prod, save_path, plot_title="Rank Distribution"):
+def rank_barplot(rank_list, rank_list_opt, num_prod, plot_title="Rank Distribution", axes=None, title_fontsize=16, plot_fontsize=14):
     rank_df = pd.DataFrame({
         "Rank": range(1, num_prod + 2),
         "Before": [rank_list.count(i) for i in range(1, num_prod + 2)],
@@ -101,21 +101,23 @@ def rank_barplot(rank_list, rank_list_opt, num_prod, save_path, plot_title="Rank
     # Scale up to 100
     rank_df["Frequency"] *= 100
 
-    plt.figure(figsize=(7, 5))
-    sns.barplot(x="Rank", y="Frequency", hue="Rank Type", data=rank_df, estimator='median', errorbar="ci")
-    plt.fill_between([9.5, 10.5], 0, 100, color="grey", alpha=0.3, zorder=0)
-    plt.title(plot_title, fontsize=16)
-    plt.xlabel("Rank", fontsize=16)
-    plt.ylabel("Percentage", fontsize=16)
-    plt.xticks(range(0, num_prod + 1), [str(i) if i <= num_prod else "" for i in range(1, num_prod + 2)], fontsize=14)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.ylim(0, 100)
+    if axes is None:
+        axes = plt.gca()
+
+    sns.barplot(x="Rank", y="Frequency", hue="Rank Type", data=rank_df, estimator='median', errorbar="ci", ax=axes)
+    y_min, y_max = axes.get_ylim()
+    axes.fill_between([9.5, 10.5], y_min, y_max, color="grey", alpha=0.3, zorder=0)
+    axes.set_title(plot_title, fontsize=title_fontsize)
+    axes.set_xlabel("Rank", fontsize=title_fontsize)
+    axes.set_ylabel("Percentage", fontsize=title_fontsize)
+    axes.set_xticks(range(0, num_prod + 1))
+    axes.set_xticklabels([str(i) if i <= num_prod else 'NR' for i in range(1, num_prod + 2)], fontsize=14)
+    axes.tick_params(axis='x', labelsize=plot_fontsize)
+    axes.tick_params(axis='y', labelsize=plot_fontsize)
+    axes.set_ylim(y_min, y_max)
     grey_patch = mpatches.Patch(color='grey', alpha=0.3, label='Not Recommended')
-    plt.legend(handles=plt.gca().get_legend_handles_labels()[0] + [grey_patch], fontsize=14)
+    axes.legend(handles=axes.get_legend_handles_labels()[0] + [grey_patch], fontsize=plot_fontsize)
     plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
 
 if __name__ == "__main__":
 
@@ -152,8 +154,13 @@ if __name__ == "__main__":
     plot_ranks(rank_list_approx, rank_list_opt_approx, num_prod, res_file_dir + "/ranks.png", plot_title=f"Rank Distribution for\n{target_product}")
     plot_ranks(rank_list_cleaned_approx, rank_list_opt_cleaned_approx, num_prod, res_file_dir + "/ranks_cleaned.png", plot_title=f"Rank Distribution for\n{target_product} (Rec Only)")
 
-    rank_barplot(data["rank_list"], data["rank_list_opt"], num_prod, res_file_dir + "/rank_barplot.png", plot_title=f"Rank Distribution for {target_product}")
-    rank_barplot(data["rank_list_cleaned"], data["rank_list_opt_cleaned"], num_prod, res_file_dir + "/rank_barplot_cleaned.png", plot_title=f"Rank Distribution for {target_product} (Rec Only)")
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    rank_barplot(data["rank_list"], data["rank_list_opt"], num_prod, plot_title=f"Rank Distribution for {target_product}", axes=axes)
+    fig.savefig(os.path.join(res_file_dir, "rank_barplot.png"))
+
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    rank_barplot(data["rank_list_cleaned"], data["rank_list_opt_cleaned"], num_prod, plot_title=f"Rank Distribution for {target_product} (Rec Only)", axes=axes)
+    fig.savefig(os.path.join(res_file_dir, "rank_barplot_cleaned.png"))
 
     # Plot advantage
     plot_advantage(advantage, res_file_dir + "/advantage.png", plot_title=f"Rank Advantage for {target_product}")
