@@ -75,7 +75,7 @@ Options:
 
  See scripts `eval_self.sh` and `eval_transfer.sh` for usage of `evaluate.py` and `plot_dist.py`.
 
-**System Requirements:** The strategic text sequences were optimized using NVIDIA A100 GPUs with 80GB memory. All the abopve scripts need to be run in a Conda environment created as per the instructions below.
+**System Requirements:** The strategic text sequences were optimized using NVIDIA A100 GPUs with 80GB memory. When run in transfer mode, `rank_opt.py` requires access to GPUs. All the abopve scripts need to be run in a Conda environment created as per the instructions below.
 
 ## Installation
 Follow the instructions below to set up the environment for the experiments.
@@ -86,35 +86,52 @@ Follow the instructions below to set up the environment for the experiments.
         ```
         bash Anaconda3-2023.03-Linux-x86_64.sh
         ```
-2. Create Conda Environment with Python:
+2. Set up conda environment `llm-rank` with required packages:
     ```
-    conda create -n [env] python=3.10
+    conda env create -f env.yml
     ```
 3. Activate environment:
     ```
+    conda activate llm-rank
+    ```
+
+### Manually Build Environment (Optional)
+If setting up the environment using `env.yml` does not work, manually build an environment
+with the required packages using the following steps:
+
+1. Create Conda Environment with Python:
+    ```
+    conda create -n [env] python=3.10
+    ```
+2. Activate environment:
+    ```
     conda activate [env]
     ```
-4. Install PyTorch with CUDA from: https://pytorch.org/
+3. Install PyTorch with CUDA from: https://pytorch.org/
 	```
     conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
     ```
-5. Install transformers from Huggingface:
+4. Install transformers from Huggingface:
     ```
     conda install -c huggingface transformers
     ```
-6. Install accelerate:
+5. Install accelerate:
     ```
     conda install -c conda-forge accelerate
     ```
-7. Install `scikit-learn` (required for training safety classifiers):
+6. Install `scikit-learn` (required for training safety classifiers):
     ```
     conda install -c anaconda scikit-learn
     ```
-8. Install `seaborn`:
+7. Install `seaborn`:
     ```
     conda install anaconda::seaborn
     ```
-9. Install `termcolor`:
+8. Install `termcolor`:
     ```
     conda install -c conda-forge termcolor
+    ```
+9. Instal OpenAI python package:
+    ```
+    conda install conda-forge::openai
     ```
