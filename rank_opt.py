@@ -430,7 +430,9 @@ if __name__ == "__main__":
     elif args.catalog == "election_articles":
         catalog = "data/election_articles.jsonl"
         if user_msg_type == "default":
-            user_msg = "I am looking for an article. Can I get some recommendations?"
+            user_msg = "I am looking for a news article. Can I get some recommendations?"
+        elif user_msg_type == "custom":
+            user_msg = "What's the latest news on the election?"
     else:
         raise ValueError("Invalid catalog.")
     num_iter = args.num_iter
