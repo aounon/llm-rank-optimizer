@@ -113,25 +113,27 @@ with the required packages using the following steps:
     ```
 4. Install transformers from Huggingface:
     ```
-    conda install -c huggingface transformers
+    pip install transformers
     ```
+    <!-- conda install -c huggingface transformers -->
 5. Install accelerate:
     ```
     conda install -c conda-forge accelerate
     ```
-6. Install `scikit-learn` (required for training safety classifiers):
+<!-- 6. Install `scikit-learn` (required for training safety classifiers):
     ```
-    conda install -c anaconda scikit-learn
+    conda install -c conda-forge scikit-learn
     ```
-7. Install `seaborn`:
+    conda install -c anaconda scikit-learn -->
+6. Install `seaborn`:
     ```
     conda install anaconda::seaborn
     ```
-8. Install `termcolor`:
+7. Install `termcolor`:
     ```
     conda install -c conda-forge termcolor
     ```
-9. Instal OpenAI python package:
+8. Instal OpenAI python package:
     ```
     conda install conda-forge::openai
     ```

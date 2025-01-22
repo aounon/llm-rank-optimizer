@@ -9,7 +9,7 @@ import seaborn as sns
 import argparse
 import numpy as np
 import matplotlib.patches as mpatches
-from scipy import stats
+# from scipy import stats
 
 from plot_dist import rank_barplot
 # sns.set_style("whitegrid")
@@ -17,10 +17,13 @@ from plot_dist import rank_barplot
 argparser = argparse.ArgumentParser()
 argparser.add_argument('input_dir', type=str, help='input directory')
 argparser.add_argument('--num_products', type=int, default=10, help='number of products to use for plots')
+argparser.add_argument('--plot_style', type=str, default='per_model', choices=['per_catalog', 'per_model'],
+                       help='whether to make separate subplots for each category or each llm')
 args = argparser.parse_args()
 
 input_dir = args.input_dir
 num_products = args.num_products
+plot_style = args.plot_style
 
 catalog_names = {
     'coffee_machines': 'Coffee Machines',
@@ -123,7 +126,7 @@ for llm in ranks_df['LLM'].unique():
                                                             'No Advantage': no_advantage_percentage + no_advantage_error, 'Disadvantage': disadvantage_percentage + disadvantage_error,
                                                             'Net Advantage': net_advantage_percentage + net_advantage_error}, index=[0])], ignore_index=True)
 # Keep only the Net Advantage column
-advantage_df = advantage_df[['LLM', 'Catalog', 'Net Advantage']]
+# advantage_df = advantage_df[['LLM', 'Catalog', 'Net Advantage']]
 
 # Mean Reciprocal Rank (MRR)
 reciprocal_ranks_df = ranks_df.copy()
@@ -132,52 +135,89 @@ reciprocal_ranks_df['After'] = reciprocal_ranks_df['After'].apply(lambda x: 1 / 
 reciprocal_ranks_df = pd.melt(reciprocal_ranks_df, id_vars=['LLM', 'Catalog'], value_vars=['Before', 'After'],
                             var_name='Condition', value_name='MRR')
 
-# Plot the Net Advantage and MRR for all catalogs.
-# Figure should have 2 x num_catalogs subplots.
-# First row should have the Net Advantage plots.
-# Second row should have the MRR plots.
-# Each subplot for Net Advantage should have 2 bars for each catalog.
-# Each subplot for MRR should have before and after MRR for each catalog for each LLM.
-# The x-axis should have the LLM names.
-# The y-axis should have the Net Advantage or MRR values.
-# The title of each subplot should be the catalog name.
-# The legend should have the before and after values.
+if plot_style == 'per_catalog':
+    # Plot the Net Advantage and MRR for all catalogs
+    num_catalogs = len(ranks_df['Catalog'].unique())
+    fig, axes = plt.subplots(2, num_catalogs, figsize=(4 * num_catalogs, 10))
 
-num_catalogs = len(ranks_df['Catalog'].unique())
-fig, axes = plt.subplots(2, num_catalogs, figsize=(4 * num_catalogs, 10))
+    for i, catalog in enumerate(ranks_df['Catalog'].unique()):
+        # Plot Net Advantage
+        sns.barplot(x='LLM', y='Net Advantage', data=advantage_df[advantage_df['Catalog'] == catalog], ax=axes[0, i],
+                    palette=['tab:green', 'tab:green'], hue='LLM')
+        axes[0, i].set_title(catalog, fontsize=18)
+        axes[0, i].set_ylabel('Net Advantage (%)', fontsize=18)
+        axes[0, i].set_xlabel('')
+        axes[0, i].tick_params(axis='x', labelsize=18)
+        axes[0, i].tick_params(axis='y', labelsize=16)
 
-# Plot the Net Advantage and MRR for all catalogs
-for i, catalog in enumerate(ranks_df['Catalog'].unique()):
-    # Plot Net Advantage
-    sns.barplot(x='LLM', y='Net Advantage', data=advantage_df[advantage_df['Catalog'] == catalog], ax=axes[0, i],
-                palette=['tab:green', 'tab:green'], hue='LLM')
-    axes[0, i].set_title(catalog, fontsize=18)
-    axes[0, i].set_ylabel('Net Advantage (%)', fontsize=18)
-    axes[0, i].set_xlabel('')
-    axes[0, i].tick_params(axis='x', labelsize=18)
-    axes[0, i].tick_params(axis='y', labelsize=16)
+        # Plot MRR
+        sns.barplot(x='LLM', y='MRR', hue='Condition', data=reciprocal_ranks_df[reciprocal_ranks_df['Catalog'] == catalog], ax=axes[1, i])
+        axes[1, i].set_title(catalog, fontsize=18)
+        axes[1, i].set_ylabel('MRR', fontsize=18)
+        axes[1, i].set_xlabel('')
+        axes[1, i].tick_params(axis='x', labelsize=18)
+        axes[1, i].tick_params(axis='y', labelsize=16)
+        axes[1, i].legend(fontsize=14)
 
-    # Plot MRR
-    sns.barplot(x='LLM', y='MRR', hue='Condition', data=reciprocal_ranks_df[reciprocal_ranks_df['Catalog'] == catalog], ax=axes[1, i])
-    axes[1, i].set_title(catalog, fontsize=18)
-    axes[1, i].set_ylabel('MRR', fontsize=18)
-    axes[1, i].set_xlabel('')
-    axes[1, i].tick_params(axis='x', labelsize=18)
-    axes[1, i].tick_params(axis='y', labelsize=16)
-    axes[1, i].legend(fontsize=14)
+elif plot_style == 'per_model':
+    # Plot the Net Advantage and MRR for each LLM
+    num_llms = len(ranks_df['LLM'].unique())
+    fig, axes = plt.subplots(2, num_llms, figsize=(10 * num_llms, 12))
+
+    for i, llm in enumerate(ranks_df['LLM'].unique()):
+        # Plot Net Advantage
+        sns.barplot(x='Catalog', y='Advantage', data=advantage_df[advantage_df['LLM'] == llm], ax=axes[0, i],
+                    palette=['tab:green'], hue='Catalog')
+        # sns.barplot(x='Catalog', y='Net Advantage', data=advantage_df[advantage_df['LLM'] == llm], ax=axes[0, i],
+        #     palette=['tab:green'], hue='Catalog')
+        axes[0, i].set_title(llm, fontsize=32)
+        axes[0, i].set_ylabel('Advantage (%)', fontsize=24)
+        # axes[0, i].set_ylabel('Net Advantage (%)', fontsize=24)
+        axes[0, i].set_xlabel('')
+        axes[0, i].tick_params(axis='x', labelsize=18)
+        axes[0, i].tick_params(axis='y', labelsize=24)
+
+        # Plot MRR
+        sns.barplot(x='Catalog', y='MRR', hue='Condition', data=reciprocal_ranks_df[reciprocal_ranks_df['LLM'] == llm], ax=axes[1, i])
+        # axes[1, i].set_title(llm, fontsize=18)
+        axes[1, i].set_ylabel('MRR', fontsize=24)
+        axes[1, i].set_xlabel('')
+        axes[1, i].tick_params(axis='x', labelsize=18)
+        axes[1, i].tick_params(axis='y', labelsize=24)
+        axes[1, i].legend(fontsize=24)
 
 plt.tight_layout()
-fig.savefig(os.path.join(input_dir, 'p' + str(num_products) + '_na_mrr.png'))
+fig.savefig(os.path.join(input_dir, 'p' + str(num_products) + '_combined.png'))
+print(f'Plot saved to {input_dir}/p{num_products}_combined.png')
+plt.close(fig)
 
+# Put all advantage types in one column
+# advantage_df = pd.melt(advantage_df, id_vars=['LLM', 'Catalog'], value_vars=['Advantage', 'Disadvantage', 'Net Advantage'],
+#                         var_name='Advantage Type', value_name='Percentage')
+advantage_df = pd.melt(advantage_df, id_vars=['LLM', 'Catalog'], value_vars=['Advantage', 'Disadvantage', 'No Advantage'],
+                        var_name='Advantage Type', value_name='Percentage')
+# advantage_df = pd.melt(advantage_df, id_vars=['LLM', 'Catalog'], value_vars=['Advantage', 'No Advantage', 'Disadvantage', 'Net Advantage'],
+#                         var_name='Advantage Type', value_name='Percentage')
+num_llms = len(ranks_df['LLM'].unique())
+fig, axes = plt.subplots(1, num_llms, figsize=(10 * num_llms, 6))
 
+for i, llm in enumerate(ranks_df['LLM'].unique()):
+    # Plot Advantage, Disadvantage, and Net Advantage
+    sns.barplot(x='Catalog', y='Percentage', hue='Advantage Type', data=advantage_df[advantage_df['LLM'] == llm],
+                ax=axes[i], palette=['tab:green', 'tab:orange', 'tab:blue'])
+    axes[i].set_title(llm, fontsize=32)
+    axes[i].set_ylabel('Percentage (%)', fontsize=24)
+    axes[i].set_xlabel('')
+    axes[i].tick_params(axis='x', labelsize=18)
+    axes[i].tick_params(axis='y', labelsize=24)
+    axes[i].legend(fontsize=18)
 
-
-
-
-
-
+plt.tight_layout()
+fig.savefig(os.path.join(input_dir, 'p' + str(num_products) + '_advantage.png'))
+print(f'Plot saved to {input_dir}/p{num_products}_advantage.png')
+plt.close(fig)
 exit()
-##################### IGNORE BELOW #####################
+##################### IGNORE EVERYTHING BELOW #####################
 # reciprocal_ranks_df = pd.melt(reciprocal_ranks_df, id_vars=['Catalog'], value_vars=['Before', 'After'], 
 #                             var_name='Condition', value_name='MRR')
 
