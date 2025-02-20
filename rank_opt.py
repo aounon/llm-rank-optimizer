@@ -402,6 +402,8 @@ if __name__ == "__main__":
     argparser.add_argument("--random_order", action="store_true", help="Whether to shuffle the product list in each iteration.")
     argparser.add_argument("--target_product_idx", type=int, default=0, help="The index of the target product in the product list.")
     argparser.add_argument("--mode", type=str, default="self", choices=["self", "transfer"], help="Mode of optimization.")
+    argparser.add_argument("--target_llm", type=str, default="llama", choices=["llama", "vicuna"],
+                           help="Target language model to generate STS for in self mode.")
     argparser.add_argument("--user_msg_type", type=str, default="default", choices=["default", "custom"], help="User message type.")
     argparser.add_argument("--save_state", action="store_true", help="Whether to save the state of the optimization procedure. If interrupted, the experiment can be resumed.")
     args = argparser.parse_args()
@@ -437,12 +439,11 @@ if __name__ == "__main__":
     test_iter = args.test_iter
     random_order = args.random_order
     mode = args.mode
+    target_llm = args.target_llm
     save_state = args.save_state
     # Use models with similar tokenizers
     model_path_llama_7b = "meta-llama/Llama-2-7b-chat-hf"
-
-    if mode == "transfer":
-        model_path_vicuna_7b = "lmsys/vicuna-7b-v1.5"
+    model_path_vicuna_7b = "lmsys/vicuna-7b-v1.5"
     
     batch_size = 150
 
@@ -456,7 +457,12 @@ if __name__ == "__main__":
     print(f"Device(s): {cuda_devices}")
     print("Mode:", mode)
     if mode == "self":
-        print("Model path:", model_path_llama_7b)
+        if target_llm == "llama":
+            print("Model path:", model_path_llama_7b)
+        elif target_llm == "vicuna":
+            print("Model path:", model_path_vicuna_7b)
+        else:
+            raise ValueError("Invalid target language model.")
     else:
         print("Model 1 path:", model_path_llama_7b)
         print("Model 2 path:", model_path_vicuna_7b)
@@ -471,19 +477,35 @@ if __name__ == "__main__":
     print("* * * * * * * * * * * * * * * * * * * * *\n")
 
     # Load model and tokenizer
-    model_llama_7b = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path_llama_7b,
-        torch_dtype=torch.float16,
-        trust_remote_code=True,
-        low_cpu_mem_usage=True,
-        use_cache=False,
-        )
-    
-    # Put model in eval mode and turn off gradients of model parameters
-    # model_llama_7b.to(device).eval()
-    model_llama_7b.to(torch.device("cuda:0")).eval()
-    for param in model_llama_7b.parameters():
-        param.requires_grad = False
+    if mode == "self" and target_llm == "vicuna":
+        model_vicuna_7b = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path_vicuna_7b,
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            use_cache=False,
+            )
+        
+        # Put model in eval mode and turn off gradients of model parameters
+        # model_vicuna_7b.to(device).eval()
+        model_vicuna_7b.to(torch.device("cuda:0")).eval()
+        for param in model_vicuna_7b.parameters():
+            param.requires_grad = False
+
+    else:
+        model_llama_7b = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path_llama_7b,
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            use_cache=False,
+            )
+        
+        # Put model in eval mode and turn off gradients of model parameters
+        # model_llama_7b.to(device).eval()
+        model_llama_7b.to(torch.device("cuda:0")).eval()
+        for param in model_llama_7b.parameters():
+            param.requires_grad = False
         
     if mode == "transfer":
         model_vicuna_7b = transformers.AutoModelForCausalLM.from_pretrained(
@@ -523,16 +545,23 @@ if __name__ == "__main__":
     # Get forbidden tokens
     forbidden_tokens = get_nonascii_toks(tokenizer_llama)
 
-    # Lambda function for the target loss and prompt generator
+    # Lambda function for the target loss
     loss_fn = lambda embeddings, model: target_loss(embeddings, model, tokenizer_llama, target_str)
-    prompt_gen_llama = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_llama(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
+    if mode == "self" and target_llm == "vicuna":
+        prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
+
+        rank_opt(target_product_idx, product_list, [model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_vicuna],
+                forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
+    else:
+        prompt_gen_llama = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_llama(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
+
+        if mode == "self" and target_llm == "llama":
+            rank_opt(target_product_idx, product_list, [model_llama_7b], tokenizer_llama, loss_fn, [prompt_gen_llama],
+                    forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
+            
     if mode == "transfer":
         prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
-    if mode == "self":
-        rank_opt(target_product_idx, product_list, [model_llama_7b], tokenizer_llama, loss_fn, [prompt_gen_llama],
-                forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
-    else:
         rank_opt(target_product_idx, product_list, [model_llama_7b, model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_llama, prompt_gen_vicuna],
                 forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
