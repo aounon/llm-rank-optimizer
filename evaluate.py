@@ -208,6 +208,20 @@ if __name__ == "__main__":
 
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
+    elif 'vicuna' in model_path:
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            use_cache=False,
+            )
+        
+        # Put model in eval mode and turn off gradients of model parameters
+        model.to(device).eval()
+
+        tokenizer = transformers.AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-chat-hf')
+
     elif 'gpt' in model_path:
         if 'OPENAI_API_KEY' not in os.environ:
             with open('key.txt', 'r') as file:
@@ -248,6 +262,12 @@ if __name__ == "__main__":
         # user_msg_formatted = "I am looking for an affordable coffee machine. Can I get some recommendations?"
         user_msg_formatted = user_msg
 
+    elif 'vicuna' in model_path:
+        system_prompt = "A chat between a user and an assistant. The assistant provides a numbered list of " \
+                    + "product recommendations ranked based on the user's request.\n\n" \
+                    + "USER:\n\nProducts:\n"
+        
+        user_msg_formatted = user_msg + "\n\nASSISTANT:"
     else:
         raise ValueError("Invalid model path")
 
@@ -294,7 +314,7 @@ if __name__ == "__main__":
         if 'gpt' in model_path:
             rank = get_rank_gpt(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
                         product_names, client, model_path, verbose=verbose)
-        elif 'Llama' in model_path:
+        elif 'Llama' in model_path or 'vicuna' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
                             product_names, model, tokenizer, device, verbose=verbose)
         else:
@@ -308,7 +328,7 @@ if __name__ == "__main__":
         if 'gpt' in model_path:
             rank = get_rank_gpt(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
                         product_names, client, model_path, verbose=verbose)
-        elif 'Llama' in model_path:
+        elif 'Llama' in model_path or 'vicuna' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
                             product_names, model, tokenizer, device, verbose=verbose)
         else:

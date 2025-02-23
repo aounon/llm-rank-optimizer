@@ -3,23 +3,36 @@
 This repository contains accompanying code for the paper titled [Manipulating Large Language Models to Increase Product Visibility](https://arxiv.org/abs/2404.07981).
 
 ## Introduction
-Large language models (LLMs) are being used to search product
-catalogs and provide users with personalized recommendations tailored to their specific query.
-In this work, we investigate whether LLM recommendations can be manipulated to enhance a product’s visibility. 
-We demonstrate that adding a strategic text sequence (STS) to a target product’s information page
-can significantly increase its likelihood of being listed as the
-LLM’s top recommendation.
-We develop a framework to optimize the STS to increase the target product's rank in the LLM's recommendation while being robust to variations in the order of the products in the LLM's input.
+Large language models (LLMs) are increasingly being integrated into
+search engines to provide natural language responses tailored to user queries.
+Customers and end-users are becoming more dependent on these models to make purchase
+decisions and access new information. In this work, we investigate whether an LLM
+can be manipulated to enhance the visibility of specific content or products in its
+recommendations. We demonstrate that adding a strategic text sequence (STS)—a
+carefully crafted message—to a product's information page or a website's content can
+significantly increase its likelihood of being listed as the LLM's top recommendations.
+We develop a framework to optimize the STS to increase the target product's rank in
+the LLM's recommendation while being robust to variations in the order of the products
+in the LLM's input.
 
+To understand the impact of the strategic text sequences, we conduct empirical analyses
+using datasets comprising catalogs of consumer products (such as coffee machines,
+books, and cameras) and a collection of political articles. We measure the change in
+visibility of a product or an article before and after the inclusion of the STS. We
+observe that the STS significantly enhances the visibility of several products and articles
+by increasing their chances of appearing as the LLM's top recommendation.
+This ability to manipulate LLM-generated search responses provides vendors and
+political entities with a considerable competitive advantage, posing potential risks to fair
+market competition and the impartiality of public opinion.
+
+The following figure shows the impact of adding an STS to a product's information page.
+In the "Before" scenario, the target product is not mentioned in the LLM's recommendations.
+However, in the "After" scenario, the STS on the product's information page enables the
+target product to appear at the first position, improving its visibility in the LLM's recommendation.
 
 <p align="center">
   <img src="figures/framework.png" width="500"/>
 </p>
-
-We use a catalog of fictitious coffee machines and analyze the effect of the STS
-on two target products: one that seldom appears in the LLM’s recommendations and another that usually ranks second.
-We observe that the strategic text sequence significantly enhances the visibility of
-both products by increasing their chances of appearing as the top recommendation.
 
 ## This Repository
 
@@ -113,25 +126,27 @@ with the required packages using the following steps:
     ```
 4. Install transformers from Huggingface:
     ```
-    conda install -c huggingface transformers
+    pip install transformers
     ```
+    <!-- conda install -c huggingface transformers -->
 5. Install accelerate:
     ```
     conda install -c conda-forge accelerate
     ```
-6. Install `scikit-learn` (required for training safety classifiers):
+<!-- 6. Install `scikit-learn` (required for training safety classifiers):
     ```
-    conda install -c anaconda scikit-learn
+    conda install -c conda-forge scikit-learn
     ```
-7. Install `seaborn`:
+    conda install -c anaconda scikit-learn -->
+6. Install `seaborn`:
     ```
     conda install anaconda::seaborn
     ```
-8. Install `termcolor`:
+7. Install `termcolor`:
     ```
     conda install -c conda-forge termcolor
     ```
-9. Instal OpenAI python package:
+8. Instal OpenAI python package:
     ```
     conda install conda-forge::openai
     ```

@@ -3,12 +3,14 @@
 catalog="books"
 num_iter=200
 user_msg_type="default"
+model_name="vicuna"
+model_path="lmsys/vicuna-7b-v1.5"
 
 for run in {1..5}
 do
     for product in {1..10}
     do
-        eval_dir="results/${catalog}/self/${user_msg_type}/product${product}/run${run}"
+        eval_dir="results/${catalog}/self/${model_name}/${user_msg_type}/product${product}/run${run}"
 
         # Check if the evaluation has already been done
         if [ -f $eval_dir/done.txt ] && grep -q "done" $eval_dir/done.txt; then
@@ -18,7 +20,7 @@ do
 
         # Evaluate the STS
         python evaluate.py \
-            --model_path "meta-llama/Llama-2-7b-chat-hf" \
+            --model_path $model_path \
             --prod_idx $product \
             --sts_dir $eval_dir \
             --catalog $catalog \
