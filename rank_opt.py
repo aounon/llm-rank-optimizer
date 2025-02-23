@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
     argparser = argparse.ArgumentParser(description="Product Rank Optimization")
     argparser.add_argument("--results_dir", type=str, default="results/test", help="The directory to save the results.")
-    argparser.add_argument("--catalog", type=str, default="coffee_machines", choices=["election_articles","coffee_machines", "books", "cameras"], help="The product catalog to use.")
+    argparser.add_argument("--catalog", type=str, default="coffee_machines", choices=["election_articles","election_articles_named", "coffee_machines", "books", "cameras"], help="The product catalog to use.")
     argparser.add_argument("--num_iter", type=int, default=500, help="The number of iterations.")
     argparser.add_argument("--test_iter", type=int, default=20, help="The number of test iterations.")
     argparser.add_argument("--random_order", action="store_true", help="Whether to shuffle the product list in each iteration.")
@@ -435,12 +435,20 @@ if __name__ == "__main__":
             user_msg = "I am looking for an article. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "What's the latest news on the election?"
+        elif user_msg_type == "custom2":
+            user_msg = "I am looking for a news article. Can I get some recommendations?"
     elif args.catalog == "election_articles":
         catalog = "data/election_articles.jsonl"
         if user_msg_type == "default":
             user_msg = "I am looking for a news article. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "What's the latest news on the election?"
+        elif user_msg_type == "custom2":
+            user_msg = "Can you give me a list of recent news on the election?"
+        elif user_msg_type == "custom3":
+            user_msg = "I am looking for an article. Can I get some recommendations?"
+
+
     else:
         raise ValueError("Invalid catalog.")
     num_iter = args.num_iter
