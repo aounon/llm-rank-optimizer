@@ -429,6 +429,12 @@ if __name__ == "__main__":
             user_msg = "I am looking for a camera. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "I am looking for a high resolution camera. Can I get some recommendations?"
+    elif args.catalog == "election_articles_named":
+        catalog = "data/election_articles_named.jsonl"
+        if user_msg_type == "default":
+            user_msg = "I am looking for an article. Can I get some recommendations?"
+        elif user_msg_type == "custom":
+            user_msg = "What's the latest news on the election?"
     elif args.catalog == "election_articles":
         catalog = "data/election_articles.jsonl"
         if user_msg_type == "default":
