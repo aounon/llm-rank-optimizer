@@ -33,53 +33,54 @@ catalog_names = {
 }
 
 mode_llm = {
-    'self': 'Llama 2',
-    'transfer': 'GPT-3.5',
+    'self': {'llama': 'Llama 2', 'vicuna': 'Vicuna 1.5'},
+    'transfer': {'gpt-3p5': 'GPT-3.5', 'gpt-4o': 'GPT-4o'},
 }
 
 fig_both_modes, axes_both_modes = plt.subplots(2, 2, figsize=(26, 16))
 
 ranks_df = pd.DataFrame(columns=['LLM', 'Catalog', 'Product', 'Before', 'After'])
 
-for mode in ['self', 'transfer']:
-    for catalog in catalog_names.keys():
-        path_to_products = os.path.join(input_dir, catalog, mode, 'default')
+for mode in mode_llm.keys():
+    for this_mode_llm in mode_llm[mode].keys():
+        for catalog in catalog_names.keys():
+            path_to_products = os.path.join(input_dir, catalog, mode, this_mode_llm, 'default')
 
-        # List all product dirtecories
-        dirs = [d for d in os.listdir(path_to_products) if os.path.isdir(os.path.join(path_to_products, d))]
-        dirs.sort()
+            # List all product dirtecories
+            dirs = [d for d in os.listdir(path_to_products) if os.path.isdir(os.path.join(path_to_products, d))]
+            dirs.sort()
 
-        best_run_per_product = []
+            best_run_per_product = []
 
-        for dir in dirs:
-            # List all run directories in the product directory
-            product_dir = os.path.join(path_to_products, dir)
-            run_dirs = [d for d in os.listdir(product_dir) if os.path.isdir(os.path.join(product_dir, d))]
-            best_run_dir = None
-            best_run_net_advantage = None
+            for dir in dirs:
+                # List all run directories in the product directory
+                product_dir = os.path.join(path_to_products, dir)
+                run_dirs = [d for d in os.listdir(product_dir) if os.path.isdir(os.path.join(product_dir, d))]
+                best_run_dir = None
+                best_run_net_advantage = None
 
-            # Find the best run directory based on the advantage
-            for run_dir in run_dirs:
-                run_dir_path = os.path.join(product_dir, run_dir)
-                if os.path.exists(os.path.join(run_dir_path, 'eval.json')):
-                    with open(os.path.join(run_dir_path, 'eval.json'), 'r') as f:
+                # Find the best run directory based on the advantage
+                for run_dir in run_dirs:
+                    run_dir_path = os.path.join(product_dir, run_dir)
+                    if os.path.exists(os.path.join(run_dir_path, 'eval.json')):
+                        with open(os.path.join(run_dir_path, 'eval.json'), 'r') as f:
+                            eval = json.load(f)
+                            if best_run_net_advantage is None or (eval['advantage']['1'] - eval['advantage']['-1'] > best_run_net_advantage):
+                                best_run_dir = run_dir
+                                best_run_net_advantage = eval['advantage']['1'] - eval['advantage']['-1']
+                best_run_per_product.append((product_dir, best_run_dir, best_run_net_advantage))
+                        
+            # Sort by net advantage in descending order keeping None at the end
+            best_run_per_product.sort(key=lambda x: x[2] if x[2] is not None else -np.inf, reverse=True)
+            # print(best_run_per_product)
+
+            for product_dir, best_run_dir, best_run_net_advantage in best_run_per_product[:num_products]:
+                if best_run_dir is not None:
+                    with open(os.path.join(product_dir, best_run_dir, 'eval.json'), 'r') as f:
                         eval = json.load(f)
-                        if best_run_net_advantage is None or (eval['advantage']['1'] - eval['advantage']['-1'] > best_run_net_advantage):
-                            best_run_dir = run_dir
-                            best_run_net_advantage = eval['advantage']['1'] - eval['advantage']['-1']
-            best_run_per_product.append((product_dir, best_run_dir, best_run_net_advantage))
-                    
-        # Sort by net advantage in descending order keeping None at the end
-        best_run_per_product.sort(key=lambda x: x[2] if x[2] is not None else -np.inf, reverse=True)
-        # print(best_run_per_product)
-
-        for product_dir, best_run_dir, best_run_net_advantage in best_run_per_product[:num_products]:
-            if best_run_dir is not None:
-                with open(os.path.join(product_dir, best_run_dir, 'eval.json'), 'r') as f:
-                    eval = json.load(f)
-                    ranks_df = pd.concat([ranks_df, pd.DataFrame({'LLM': mode_llm[mode], 'Catalog': catalog_names[catalog],
-                                                                  'Product': eval['target_product'], 'Before': eval['rank_list'],
-                                                                  'After': eval['rank_list_opt']})], ignore_index=True)
+                        ranks_df = pd.concat([ranks_df, pd.DataFrame({'LLM': mode_llm[mode][this_mode_llm], 'Catalog': catalog_names[catalog],
+                                                                    'Product': eval['target_product'], 'Before': eval['rank_list'],
+                                                                    'After': eval['rank_list_opt']})], ignore_index=True)
 
 combined_df = ranks_df.copy()
 combined_df['Catalog'] = 'Combined'

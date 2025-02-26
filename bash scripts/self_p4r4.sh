@@ -2,7 +2,7 @@
 
 product=4
 run=4
-catalog="books"
+catalog="coffee_machines"
 mode="self"
 user_msg_type="default"
 target_llm="vicuna"

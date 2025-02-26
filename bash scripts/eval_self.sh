@@ -1,6 +1,6 @@
 #!/bin/bash
 
-catalog="books"
+catalog="cameras"
 num_iter=200
 user_msg_type="default"
 model_name="vicuna"
@@ -14,7 +14,7 @@ do
 
         # Check if the evaluation has already been done
         if [ -f $eval_dir/done.txt ] && grep -q "done" $eval_dir/done.txt; then
-            echo "Evaluation for product $product already done"
+            echo "Evaluation for product $product, run $run already done"
             continue
         fi
 
