@@ -36,3 +36,5 @@ do
         echo "done" > $eval_dir/done.txt
     done
 done
+
+echo $SLURM_NODELIST

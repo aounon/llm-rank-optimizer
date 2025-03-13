@@ -14,3 +14,5 @@ python rank_opt.py \
     --num_iter 2000 --test_iter 50 \
     --random_order --save_state \
     --mode ${mode}
+
+echo $SLURM_NODELIST

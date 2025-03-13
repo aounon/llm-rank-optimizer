@@ -46,6 +46,10 @@ for mode in mode_llm.keys():
         for catalog in catalog_names.keys():
             path_to_products = os.path.join(input_dir, catalog, mode, this_mode_llm, 'default')
 
+            # Skip if the directory does not exist
+            if not os.path.exists(path_to_products):
+                continue
+
             # List all product dirtecories
             dirs = [d for d in os.listdir(path_to_products) if os.path.isdir(os.path.join(path_to_products, d))]
             dirs.sort()
@@ -187,7 +191,7 @@ elif plot_style == 'per_model':
         axes[1, i].tick_params(axis='y', labelsize=24)
         axes[1, i].legend(fontsize=24)
 
-plt.tight_layout()
+plt.tight_layout(pad=4)
 fig.savefig(os.path.join(input_dir, 'p' + str(num_products) + '_combined.png'))
 print(f'Plot saved to {input_dir}/p{num_products}_combined.png')
 plt.close(fig)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-catalog="cameras"
+catalog="coffee_machines"
 num_iter=200
 user_msg_type="default"
 model_name="vicuna"
@@ -38,3 +38,5 @@ do
         echo "done" > $eval_dir/done.txt
     done
 done
+
+echo $SLURM_NODELIST

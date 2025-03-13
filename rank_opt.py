@@ -148,7 +148,7 @@ def prompt_generator_llama(target_product_idx, product_list, user_msg, tokenizer
 
 def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_function, prompt_gen_list,
              forbidden_tokens, save_path, num_iter=1000, top_k=256, num_samples=512, batch_size=200,
-             test_iter=50, num_sts_tokens=30, verbose=True, random_order=True, save_state=True):
+             test_iter=50, num_sts_tokens=30, top_candidates=7, verbose=True, random_order=True, save_state=True):
     '''
     Implements the rank optimization procedure. The objective is to generate an optimized
     text sequence that when add to the target product in the product list will result in
@@ -201,6 +201,16 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
         best_top_count = state_dict["best_top_count"]
     else:
         sts_tokens = torch.full((1, num_sts_tokens), tokenizer.encode('*')[1])  # Insert optimizable tokens
+        
+        # Random initialization of STS tokens removing forbidden tokens
+        # sts_tokens = []
+        # for _ in range(num_sts_tokens):
+        #     rand_token = random.randint(0, tokenizer.vocab_size - 1)
+        #     while rand_token in forbidden_tokens:
+        #         rand_token = random.randint(0, tokenizer.vocab_size - 1)
+        #     sts_tokens.append(rand_token)
+        # sts_tokens = torch.tensor(sts_tokens).unsqueeze(0)
+
         start_iter = 0
         rank_df = pd.DataFrame(columns=["Iteration", "Rank"])
         loss_df = pd.DataFrame(columns=["Iteration", "Current Loss", "Average Loss"])
@@ -249,8 +259,9 @@ def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_funct
 
         # Perform one step of the optimization procedure
         start_time = time.time()
-        # inp_prompt_ids, curr_loss = gcg_step(inp_prompt_ids, sts_idxs, model, loss_function, forbidden_tokens, top_k, num_samples, batch_size)
-        input_sequence_list, curr_loss = gcg_step_multi(input_sequence_list, sts_idxs_list, model_list, loss_function, forbidden_tokens, top_k, num_samples, batch_size)
+        input_sequence_list, curr_loss = gcg_step_multi(input_sequence_list, sts_idxs_list, model_list,
+                                                        loss_function, forbidden_tokens, top_k, num_samples,
+                                                        batch_size, top_candidates)
         end_time = time.time()
         iter_time = end_time - start_time
         avg_iter_time = ((iter * avg_iter_time) + iter_time) / (iter + 1)
@@ -404,6 +415,7 @@ if __name__ == "__main__":
     argparser.add_argument("--mode", type=str, default="self", choices=["self", "transfer"], help="Mode of optimization.")
     argparser.add_argument("--target_llm", type=str, default="llama", choices=["llama", "vicuna"],
                            help="Target language model to generate STS for in self mode.")
+    argparser.add_argument("--top_candidates", type=int, default=7, help="Number of top candidates to consider for multi-coordinate updates.")
     argparser.add_argument("--user_msg_type", type=str, default="default", choices=["default", "custom"], help="User message type.")
     argparser.add_argument("--save_state", action="store_true", help="Whether to save the state of the optimization procedure. If interrupted, the experiment can be resumed.")
     args = argparser.parse_args()
@@ -440,6 +452,7 @@ if __name__ == "__main__":
     random_order = args.random_order
     mode = args.mode
     target_llm = args.target_llm
+    top_candidates = args.top_candidates
     save_state = args.save_state
     # Use models with similar tokenizers
     model_path_llama_7b = "meta-llama/Llama-2-7b-chat-hf"
@@ -453,27 +466,34 @@ if __name__ == "__main__":
     # Get list of all cuda device names
     cuda_devices = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
 
+    # Create results directory if it does not exist
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+
+    exp_config = {
+        "Device(s)": cuda_devices,
+        "Mode": mode,
+        "Model path(s)": model_path_llama_7b if mode == "self" and target_llm == "llama" else model_path_vicuna_7b if mode == "self" and target_llm == "vicuna" else [model_path_llama_7b, model_path_vicuna_7b],
+        "Product catalog": catalog,
+        "User message type": user_msg_type,
+        "Number of iterations": num_iter,
+        "Test iteration interval": test_iter,
+        "Batch size": batch_size,
+        "Top candidates": top_candidates,
+        "Shuffle product list": random_order,
+        "Results directory": results_dir,
+        "Save state": save_state
+    }
+
+    # Save to file
+    with open(os.path.join(results_dir, "exp_config.json"), "w") as f:
+        json.dump(exp_config, f, indent=4)
+
+    # Print the configuration
     print("\n* * * * * Experiment Parameters * * * * *")
-    print(f"Device(s): {cuda_devices}")
-    print("Mode:", mode)
-    if mode == "self":
-        if target_llm == "llama":
-            print("Model path:", model_path_llama_7b)
-        elif target_llm == "vicuna":
-            print("Model path:", model_path_vicuna_7b)
-        else:
-            raise ValueError("Invalid target language model.")
-    else:
-        print("Model 1 path:", model_path_llama_7b)
-        print("Model 2 path:", model_path_vicuna_7b)
-    print("Product catalog:", catalog)
-    print(f"User message type: {user_msg_type}")
-    print("Number of iterations:", num_iter)
-    print("Test iteration interval:", test_iter)
-    print("Batch size:", batch_size)
-    print("Shuffle product list:", random_order)
-    print("Results directory:", results_dir)
-    print("Save state:", save_state)
+    # print(json.dumps(exp_config, indent=4))
+    for key, value in exp_config.items():
+        print(f"{key}: {value}")
     print("* * * * * * * * * * * * * * * * * * * * *\n")
 
     # Load model and tokenizer
@@ -552,16 +572,16 @@ if __name__ == "__main__":
         prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
         rank_opt(target_product_idx, product_list, [model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_vicuna],
-                forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
+                forbidden_tokens, results_dir, test_iter=test_iter, top_candidates=top_candidates, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
     else:
         prompt_gen_llama = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_llama(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
         if mode == "self" and target_llm == "llama":
             rank_opt(target_product_idx, product_list, [model_llama_7b], tokenizer_llama, loss_fn, [prompt_gen_llama],
-                    forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
+                    forbidden_tokens, results_dir, test_iter=test_iter, top_candidates=top_candidates, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
             
     if mode == "transfer":
         prompt_gen_vicuna = lambda adv_target_idx, prod_list, tokenizer, device, adv_tokens: prompt_generator_vicuna(adv_target_idx, prod_list, user_msg, tokenizer, device, adv_tokens)
 
         rank_opt(target_product_idx, product_list, [model_llama_7b, model_vicuna_7b], tokenizer_llama, loss_fn, [prompt_gen_llama, prompt_gen_vicuna],
-                forbidden_tokens, results_dir, test_iter=test_iter, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)
+                forbidden_tokens, results_dir, test_iter=test_iter, top_candidates=top_candidates, batch_size=batch_size, num_iter=num_iter, random_order=random_order, save_state=save_state)

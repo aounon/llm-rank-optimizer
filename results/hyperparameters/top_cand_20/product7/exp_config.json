@@ -1,0 +1,16 @@
+{
+    "Device(s)": [
+        "NVIDIA H100 80GB HBM3"
+    ],
+    "Mode": "self",
+    "Model path(s)": "lmsys/vicuna-7b-v1.5",
+    "Product catalog": "data/coffee_machines.jsonl",
+    "User message type": "default",
+    "Number of iterations": 2000,
+    "Test iteration interval": 50,
+    "Batch size": 150,
+    "Top candidates": 20,
+    "Shuffle product list": true,
+    "Results directory": "results/hyperparameters/top_cand_20/product7",
+    "Save state": true
+}

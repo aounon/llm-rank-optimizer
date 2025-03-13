@@ -1,0 +1,10 @@
+{
+  "Model path": "lmsys/vicuna-7b-v1.5",
+  "Product index": 8,
+  "Number of iterations": 200,
+  "Product order": "random",
+  "STS Directory": "results/hyperparameters/top_cand_7/product8",
+  "Catalog": "data/coffee_machines.jsonl",
+  "User message type": "default",
+  "Verbose": false
+}

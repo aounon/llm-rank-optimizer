@@ -15,3 +15,5 @@ python rank_opt.py \
     --random_order --save_state \
     --mode ${mode}
 
+
+echo $SLURM_NODELIST

@@ -173,15 +173,26 @@ if __name__ == "__main__":
     # else:
     #     raise ValueError("Invalid catalog.")
 
+    # Create a dictionary of experiment parameters
+    experiment_params = {
+        "Model path": model_path,
+        "Product index": prod_idx,
+        "Number of iterations": num_iter,
+        "Product order": prod_ord,
+        "STS Directory": sts_dir,
+        "Catalog": catalog,
+        "User message type": user_msg_type,
+        "Verbose": verbose
+    }
+
+    # Save experiment parameters to a JSON file
+    with open(sts_dir + "/eval_config.json", "w") as file:
+        json.dump(experiment_params, file, indent=2)
+
+    # Print experiment parameters
     print("\n* * * * * Experiment Parameters * * * * *")
-    print(f"Model path: {model_path}")
-    print(f"Product index: {prod_idx}")
-    print(f"Number of iterations: {num_iter}")
-    print(f"Product order: {prod_ord}")
-    print(f"STS Directory: {sts_dir}")
-    print(f"Catalog: {catalog}")
-    print(f"User message type: {user_msg_type}")
-    print(f"Verbose: {verbose}")
+    for key, value in experiment_params.items():
+        print(f"{key}: {value}")
     print("* * * * * * * * * * * * * * * * * * * * *\n", flush=True)
 
     # Set device
