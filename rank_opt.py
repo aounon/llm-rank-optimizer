@@ -148,7 +148,7 @@ def prompt_generator_llama(target_product_idx, product_list, user_msg, tokenizer
 
 def rank_opt(target_product_idx, product_list, model_list, tokenizer, loss_function, prompt_gen_list,
              forbidden_tokens, save_path, num_iter=1000, top_k=256, num_samples=512, batch_size=200,
-             test_iter=50, num_sts_tokens=30, top_candidates=7, verbose=True, random_order=True, save_state=True):
+             test_iter=50, num_sts_tokens=30, top_candidates=1, verbose=True, random_order=True, save_state=True):
     '''
     Implements the rank optimization procedure. The objective is to generate an optimized
     text sequence that when add to the target product in the product list will result in
@@ -415,7 +415,7 @@ if __name__ == "__main__":
     argparser.add_argument("--mode", type=str, default="self", choices=["self", "transfer"], help="Mode of optimization.")
     argparser.add_argument("--target_llm", type=str, default="llama", choices=["llama", "vicuna"],
                            help="Target language model to generate STS for in self mode.")
-    argparser.add_argument("--top_candidates", type=int, default=7, help="Number of top candidates to consider for multi-coordinate updates.")
+    argparser.add_argument("--top_candidates", type=int, default=1, help="Number of top candidates to consider for multi-coordinate updates.")
     argparser.add_argument("--user_msg_type", type=str, default="default", choices=["default", "custom"], help="User message type.")
     argparser.add_argument("--save_state", action="store_true", help="Whether to save the state of the optimization procedure. If interrupted, the experiment can be resumed.")
     args = argparser.parse_args()
