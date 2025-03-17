@@ -146,7 +146,12 @@ with the required packages using the following steps:
     ```
     conda install -c conda-forge termcolor
     ```
-8. Instal OpenAI python package:
+8. Install OpenAI python package:
     ```
     conda install conda-forge::openai
+    ```
+
+9. Install Anthropic python package: 
+    ```
+    pip install anthropic
     ```

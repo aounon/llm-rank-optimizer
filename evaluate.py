@@ -4,10 +4,45 @@ import json
 import numpy as np
 import argparse
 from openai import OpenAI
+import anthropic
 import sys
 import os 
 
 from rank_opt import rank_products
+
+
+def get_rank_claude(system_prompt, user_msg, product_lines, target_product, product_names, client, model_path, verbose=False):
+    prompt = "Products:\n"
+    for line in product_lines:
+        prompt += line
+
+    prompt += "\n" + user_msg
+
+    if verbose:
+        print(f'SYSTEM PROMPT: {system_prompt}', flush=True)
+        print(f'INPUT PROMPT: {prompt}', flush=True)
+
+    completion = client.messages.create(
+        model=model_path,
+        max_tokens=4096,
+        system=system_prompt,
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    model_response = completion.content[0].text
+
+    if verbose:
+        print(f'\nMODEL OUTPUT: {model_response}')
+
+    rank = rank_products(model_response, product_names)[target_product]
+
+    if verbose:
+        print(f"Rank: {rank}")
+        input("Press Enter to continue...")
+
+    return rank
 
 def get_rank_gpt(system_prompt, user_msg, product_lines, target_product, product_names, client, model_path, verbose=False):
     prompt = "Products:\n"
@@ -231,6 +266,9 @@ if __name__ == "__main__":
         else:
             client = OpenAI()
 
+    elif 'claude' in model_path:
+        client = anthropic.Anthropic()
+
     else:
         raise ValueError("Invalid model path")
 
@@ -254,7 +292,7 @@ if __name__ == "__main__":
         # user_msg_formatted = "I am looking for an affordable coffee machine. Can I get some recommendations? <|eot_id|><|start_header_id|>assistant<|end_header_id|>"
         user_msg_formatted = user_msg + " <|eot_id|><|start_header_id|>assistant<|end_header_id|>"
 
-    elif 'gpt' in model_path:
+    elif 'gpt' in model_path or 'claude' in model_path:
         system_prompt = "A chat between a human and an artificial intelligence assistant. " \
                         + "The assistant provides a numbered list of product recommendations " \
                         + "ranked based on the user's request."
@@ -317,6 +355,9 @@ if __name__ == "__main__":
         elif 'Llama' in model_path or 'vicuna' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
                             product_names, model, tokenizer, device, verbose=verbose)
+        elif 'claude' in model_path:
+            rank = get_rank_claude(system_prompt, user_msg_formatted, product_lines_reorder, target_product,
+                        product_names, client, model_path, verbose=verbose)
         else:
             raise ValueError("Invalid model path")
         
@@ -328,6 +369,11 @@ if __name__ == "__main__":
         if 'gpt' in model_path:
             rank = get_rank_gpt(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
                         product_names, client, model_path, verbose=verbose)
+        
+        elif 'claude' in model_path:
+            rank = get_rank_claude(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
+                        product_names, client, model_path, verbose=verbose) 
+
         elif 'Llama' in model_path or 'vicuna' in model_path:
             rank = get_rank(system_prompt, user_msg_formatted, product_opt_reorder, target_product,
                             product_names, model, tokenizer, device, verbose=verbose)
