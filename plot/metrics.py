@@ -34,7 +34,7 @@ catalog_names = {
 
 mode_llm = {
     'self': {'llama': 'Llama 2', 'vicuna': 'Vicuna 1.5'},
-    'transfer': {'gpt-3p5': 'GPT-3.5', 'gpt-4o': 'GPT-4o'},
+    'transfer': {'gpt-3p5': 'GPT-3.5', 'gpt-4o': 'GPT-4o', 'claude-3': 'Claude 3'},
 }
 
 fig_both_modes, axes_both_modes = plt.subplots(2, 2, figsize=(26, 16))

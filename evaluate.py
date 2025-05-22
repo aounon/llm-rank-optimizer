@@ -4,7 +4,7 @@ import json
 import numpy as np
 import argparse
 from openai import OpenAI
-import anthropic
+from anthropic import Anthropic
 import sys
 import os 
 
@@ -266,15 +266,21 @@ if __name__ == "__main__":
 
     elif 'gpt' in model_path:
         if 'OPENAI_API_KEY' not in os.environ:
-            with open('key.txt', 'r') as file:
-                key = file.read()
+            with open('key.json', 'r') as file:
+                key = json.load(file)
 
-            client = OpenAI(api_key=key)
+            client = OpenAI(api_key=key['openai'])
         else:
             client = OpenAI()
 
     elif 'claude' in model_path:
-        client = anthropic.Anthropic()
+        if 'ANTHROPIC_API_KEY' not in os.environ:
+            with open('key.json', 'r') as file:
+                key = json.load(file)
+
+            client = Anthropic(api_key=key['anthropic'])
+        else:
+            client = Anthropic()
 
     else:
         raise ValueError("Invalid model path")

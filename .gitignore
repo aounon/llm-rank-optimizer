@@ -2,7 +2,7 @@ misc.py
 test.py
 *_old*
 logs
-key.txt
+key.json
 *.pth
 __pycache__
 */done.txt

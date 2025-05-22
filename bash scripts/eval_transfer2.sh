@@ -1,14 +1,16 @@
 #!/bin/bash
 
-catalog="coffee_machines"
+catalog="cameras"
 num_iter=200
 user_msg_type="default"
+model_path="claude-3-haiku-20240307"        # "gpt-4o-mini" "gpt-3.5-turbo"
+model_dir_name="claude-3"
 
 for run in {1..5}
 do
     for product in {1..10}
     do
-        eval_dir="results/${catalog}/transfer/gpt-4o/${user_msg_type}/product${product}/run${run}"
+        eval_dir="results/${catalog}/transfer/${model_dir_name}/${user_msg_type}/product${product}/run${run}"
 
         # Check if the evaluation has already been done
         if [ -f $eval_dir/done.txt ] && grep -q "done" $eval_dir/done.txt; then
@@ -18,15 +20,13 @@ do
 
         # Evaluate the STS
         python evaluate.py \
-            --model_path "gpt-4o-mini" \
+            --model_path $model_path \
             --prod_idx $product \
             --sts_dir $eval_dir \
             --catalog $catalog \
             --num_iter $num_iter \
             --prod_ord random \
             --user_msg_type $user_msg_type      # --verbose
-
-            # --model_path "gpt-3.5-turbo" \
 
         # Plot the rank distribution
         python plot/plot_dist.py $eval_dir/eval.json

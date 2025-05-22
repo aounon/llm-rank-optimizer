@@ -1,0 +1,10 @@
+{
+  "Model path": "claude-3-haiku-20240307",
+  "Product index": 4,
+  "Number of iterations": 200,
+  "Product order": "random",
+  "STS Directory": "results/books/transfer/claude-3/default/product4/run1",
+  "Catalog": "data/books.jsonl",
+  "User message type": "default",
+  "Verbose": false
+}

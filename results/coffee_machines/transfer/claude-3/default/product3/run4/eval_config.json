@@ -1,0 +1,10 @@
+{
+  "Model path": "claude-3-haiku-20240307",
+  "Product index": 3,
+  "Number of iterations": 200,
+  "Product order": "random",
+  "STS Directory": "results/coffee_machines/transfer/claude-3/default/product3/run4",
+  "Catalog": "data/coffee_machines.jsonl",
+  "User message type": "default",
+  "Verbose": false
+}
