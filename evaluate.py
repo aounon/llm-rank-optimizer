@@ -191,10 +191,11 @@ if __name__ == "__main__":
             user_msg = "I am looking for a camera. Can I get some recommendations?"
         elif user_msg_type == "custom":
             user_msg = "I am looking for a high resolution camera. Can I get some recommendations?"
+
     elif args.catalog == "election_articles":
         catalog = "data/election_articles.jsonl"
         if user_msg_type == "default":
-            user_msg = "I am looking for an article. Can I get some recommendations?"
+            user_msg = "I am looking for a news article. Can I get some recommendations?"
 
     # if args.catalog == "coffee_machines":
     #     catalog = "data/coffee_machines.jsonl"
